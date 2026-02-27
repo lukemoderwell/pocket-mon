@@ -41,7 +41,11 @@ export interface LeaderboardEntry {
   wins: number;
   losses: number;
   attack: number;
+  hp: number;
+  defense: number;
+  speed: number;
   image_url: string;
+  backstory: string;
   stage: number;
   moves: Move[];
 }

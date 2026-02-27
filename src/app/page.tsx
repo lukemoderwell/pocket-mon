@@ -7,6 +7,8 @@ import { motion } from "motion/react";
 import { useGameStore } from "@/lib/store";
 import { RetroButton } from "@/components/retro-button";
 import { RetroCard } from "@/components/retro-card";
+import { BottomSheet } from "@/components/bottom-sheet";
+import { MonsterDetail } from "@/components/monster-detail";
 import { supabase } from "@/lib/supabase";
 import type { LeaderboardEntry } from "@/lib/types";
 
@@ -17,6 +19,7 @@ export default function Home() {
   const { setPhase, reset, playerCount, setPlayerCount, initPlayers } =
     useGameStore();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [selectedMonster, setSelectedMonster] = useState<LeaderboardEntry | null>(null);
 
   useEffect(() => {
     async function fetchLeaderboard() {
@@ -42,7 +45,7 @@ export default function Home() {
       const monsterIds = [...stats.keys()];
       const { data: monsters } = await supabase
         .from("monsters")
-        .select("id, name, attack, image_url, stage, moves")
+        .select("id, name, hp, attack, defense, speed, image_url, backstory, stage, moves")
         .in("id", monsterIds);
       if (!monsters) return;
 
@@ -54,8 +57,12 @@ export default function Home() {
             monster_name: m.name,
             wins: s.wins,
             losses: s.losses,
+            hp: m.hp ?? 0,
             attack: m.attack,
+            defense: m.defense ?? 0,
+            speed: m.speed ?? 0,
             image_url: m.image_url,
+            backstory: m.backstory ?? "",
             stage: m.stage ?? 1,
             moves: Array.isArray(m.moves) ? m.moves : [],
           };
@@ -134,84 +141,72 @@ export default function Home() {
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4 }}
-          className="w-full max-w-xs"
+          className="w-full max-w-sm"
         >
           <RetroCard>
-            <h2 className="font-retro text-[10px] text-retro-gold mb-3 text-center">
+            <h2 className="font-retro text-[10px] text-retro-gold mb-4 text-center">
               Leaderboard
             </h2>
-            {/* Column headers */}
-            <div className="flex items-center gap-3 mb-1">
-              <span className="w-4" />
-              <span className="w-8" />
-              <span className="font-retro text-[6px] text-retro-white/30 flex-1">
-                Name
-              </span>
-              <span className="font-retro text-[6px] text-retro-white/30 w-10 text-center">
-                W/L
-              </span>
-              <span className="font-retro text-[6px] text-retro-white/30 w-8 text-right">
-                ATK
-              </span>
-              <span className="font-retro text-[6px] text-retro-white/30 w-8 text-right">
-                STG
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {leaderboard.map((entry, i) => (
-                <div key={entry.monster_name} className="flex flex-col gap-0.5">
-                  <div className="flex items-center gap-3">
-                    <span className="font-retro text-[10px] text-retro-accent w-4">
-                      {i + 1}.
-                    </span>
-                    <div className="relative h-8 w-8 overflow-hidden border border-retro-white bg-[#4a90d9]">
-                      <Image
-                        src={entry.image_url}
-                        alt={entry.monster_name}
-                        fill
-                        className="object-contain"
-                        unoptimized
-                      />
-                    </div>
-                    <span className="font-retro text-[8px] flex-1 truncate">
-                      {entry.monster_name}
-                    </span>
-                    <span className="font-retro text-[8px] w-10 text-center">
-                      <span className="text-retro-green">{entry.wins}</span>
-                      <span className="text-retro-white/30">/</span>
-                      <span className="text-retro-accent">{entry.losses}</span>
-                    </span>
-                    <span className="font-retro text-[8px] text-retro-gold w-8 text-right">
-                      {entry.attack}
-                    </span>
-                    <span className="font-retro text-[8px] w-8 text-right flex justify-end gap-0.5">
-                      {[1, 2, 3].map((s) => (
-                        <span
-                          key={s}
-                          className={`text-[6px] ${
-                            s <= entry.stage ? "text-retro-gold" : "text-retro-white/20"
-                          }`}
-                        >
-                          ◆
-                        </span>
-                      ))}
-                    </span>
+                <button
+                  key={entry.monster_name}
+                  onClick={() => setSelectedMonster(entry)}
+                  className="flex items-center gap-4 p-2 -mx-2 rounded transition-colors hover:bg-retro-white/5 active:bg-retro-white/10 text-left"
+                >
+                  <span className="font-retro text-xs text-retro-accent w-5 shrink-0">
+                    {i + 1}.
+                  </span>
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden border-2 border-retro-white bg-[#4a90d9]">
+                    <Image
+                      src={entry.image_url}
+                      alt={entry.monster_name}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
                   </div>
-                  {entry.moves.length > 0 && (
-                    <div className="ml-[52px] flex gap-2">
-                      {entry.moves.map((m) => (
-                        <span key={m.name} className="font-retro text-[6px] text-retro-white/30">
-                          {m.name}
-                        </span>
-                      ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="font-retro text-[9px] text-retro-white truncate">
+                        {entry.monster_name}
+                      </span>
+                      <div className="flex gap-0.5 shrink-0">
+                        {[1, 2, 3].map((s) => (
+                          <span
+                            key={s}
+                            className={`text-[6px] ${
+                              s <= entry.stage ? "text-retro-gold" : "text-retro-white/20"
+                            }`}
+                          >
+                            ◆
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  )}
-                </div>
+                    <div className="flex gap-3 font-retro text-[7px]">
+                      <span>
+                        <span className="text-retro-green">{entry.wins}W</span>
+                        <span className="text-retro-white/20"> / </span>
+                        <span className="text-retro-accent">{entry.losses}L</span>
+                      </span>
+                      <span className="text-retro-gold">ATK {entry.attack}</span>
+                    </div>
+                  </div>
+                </button>
               ))}
             </div>
           </RetroCard>
         </motion.div>
       )}
+
+      {/* Monster Detail Sheet */}
+      <BottomSheet
+        open={selectedMonster !== null}
+        onClose={() => setSelectedMonster(null)}
+      >
+        {selectedMonster && <MonsterDetail entry={selectedMonster} />}
+      </BottomSheet>
 
       {/* Footer */}
       <p className="font-retro text-[6px] text-retro-white/20">
