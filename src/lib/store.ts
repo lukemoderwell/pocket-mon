@@ -7,8 +7,10 @@ import type {
   Player,
   MonsterGenStatus,
   TournamentState,
+  EvolutionResult,
 } from "./types";
 import { buildBracket, findNextPlayableMatch, advanceWinner } from "./bracket";
+import { supabase } from "./supabase";
 
 interface GameState {
   phase: GamePhase;
@@ -17,6 +19,10 @@ interface GameState {
   currentPlayerIndex: number;
   genStatus: MonsterGenStatus[];
   tournament: TournamentState | null;
+
+  // Evolution
+  pendingEvolution: { monsterId: string; playerIndex: number } | null;
+  evolving: boolean;
 
   // Actions
   setPhase: (phase: GamePhase) => void;
@@ -38,6 +44,11 @@ interface GameState {
   ) => void;
   advanceMatch: () => void;
 
+  // Battle persistence + evolution
+  saveBattle: (winnerId: string, loserId: string) => Promise<void>;
+  setPendingEvolution: (pending: { monsterId: string; playerIndex: number } | null) => void;
+  setEvolving: (evolving: boolean) => void;
+
   reset: () => void;
 }
 
@@ -51,6 +62,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   currentPlayerIndex: 0,
   genStatus: ["idle", "idle"],
   tournament: null,
+  pendingEvolution: null,
+  evolving: false,
 
   setPhase: (phase) => set({ phase }),
 
@@ -134,6 +147,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       return { phase: "results" };
     }),
 
+  saveBattle: async (winnerId, loserId) => {
+    const { error } = await supabase
+      .from("battles")
+      .insert({ winner_id: winnerId, loser_id: loserId });
+    if (error) console.error("Failed to save battle:", error);
+  },
+
+  setPendingEvolution: (pending) => set({ pendingEvolution: pending }),
+  setEvolving: (evolving) => set({ evolving }),
+
   reset: () =>
     set({
       phase: "lobby",
@@ -145,5 +168,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       currentPlayerIndex: 0,
       genStatus: ["idle", "idle"],
       tournament: null,
+      pendingEvolution: null,
+      evolving: false,
     }),
 }));

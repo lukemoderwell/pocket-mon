@@ -6,6 +6,10 @@ export interface Monster {
   defense: number;
   speed: number;
   image_url: string;
+  backstory: string;
+  stage: number;
+  evo_threshold_2: number | null;
+  evo_threshold_3: number | null;
   created_at: string;
 }
 
@@ -27,6 +31,13 @@ export interface LeaderboardEntry {
   losses: number;
   attack: number;
   image_url: string;
+  stage: number;
+}
+
+export interface EvolutionResult {
+  monster: Monster;
+  fromStage: number;
+  toStage: number;
 }
 
 export type GamePhase = "lobby" | "create" | "bracket" | "battle" | "results";

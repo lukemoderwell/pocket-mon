@@ -7,9 +7,10 @@ import type { Monster } from "@/lib/types";
 interface MonsterCardProps {
   monster: Monster;
   highlight?: boolean;
+  compact?: boolean;
 }
 
-export function MonsterCard({ monster, highlight }: MonsterCardProps) {
+export function MonsterCard({ monster, highlight, compact }: MonsterCardProps) {
   return (
     <RetroCard
       className={highlight ? "ring-2 ring-retro-gold ring-offset-2 ring-offset-retro-black" : ""}
@@ -24,15 +25,40 @@ export function MonsterCard({ monster, highlight }: MonsterCardProps) {
             unoptimized
           />
         </div>
-        <h3 className="font-retro text-xs text-retro-gold">{monster.name}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-retro text-xs text-retro-gold">{monster.name}</h3>
+          <StageIndicator stage={monster.stage} />
+        </div>
         <div className="grid w-full grid-cols-2 gap-x-4 gap-y-1 text-[8px]">
           <StatRow label="HP" value={monster.hp} color="text-retro-green" />
           <StatRow label="ATK" value={monster.attack} color="text-retro-accent" />
           <StatRow label="DEF" value={monster.defense} color="text-retro-blue" />
           <StatRow label="SPD" value={monster.speed} color="text-retro-gold" />
         </div>
+        {!compact && monster.backstory && (
+          <p className="font-retro text-[7px] text-retro-white/50 text-center leading-relaxed">
+            {monster.backstory}
+          </p>
+        )}
       </div>
     </RetroCard>
+  );
+}
+
+function StageIndicator({ stage }: { stage: number }) {
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3].map((s) => (
+        <span
+          key={s}
+          className={`text-[8px] ${
+            s <= stage ? "text-retro-gold" : "text-retro-white/20"
+          }`}
+        >
+          ◆
+        </span>
+      ))}
+    </div>
   );
 }
 

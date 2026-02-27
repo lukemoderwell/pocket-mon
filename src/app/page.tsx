@@ -42,7 +42,7 @@ export default function Home() {
       const monsterIds = [...stats.keys()];
       const { data: monsters } = await supabase
         .from("monsters")
-        .select("id, name, attack, image_url")
+        .select("id, name, attack, image_url, stage")
         .in("id", monsterIds);
       if (!monsters) return;
 
@@ -56,6 +56,7 @@ export default function Home() {
             losses: s.losses,
             attack: m.attack,
             image_url: m.image_url,
+            stage: m.stage ?? 1,
           };
         })
         .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
@@ -151,6 +152,9 @@ export default function Home() {
               <span className="font-retro text-[6px] text-retro-white/30 w-8 text-right">
                 ATK
               </span>
+              <span className="font-retro text-[6px] text-retro-white/30 w-8 text-right">
+                STG
+              </span>
             </div>
             <div className="flex flex-col gap-2">
               {leaderboard.map((entry, i) => (
@@ -180,6 +184,18 @@ export default function Home() {
                   </span>
                   <span className="font-retro text-[8px] text-retro-gold w-8 text-right">
                     {entry.attack}
+                  </span>
+                  <span className="font-retro text-[8px] w-8 text-right flex justify-end gap-0.5">
+                    {[1, 2, 3].map((s) => (
+                      <span
+                        key={s}
+                        className={`text-[6px] ${
+                          s <= entry.stage ? "text-retro-gold" : "text-retro-white/20"
+                        }`}
+                      >
+                        ◆
+                      </span>
+                    ))}
                   </span>
                 </div>
               ))}

@@ -5,15 +5,26 @@ import { useRouter } from "next/navigation";
 import { useGameStore } from "@/lib/store";
 import { BracketView } from "@/components/bracket-view";
 import { MatchFight } from "@/components/match-fight";
+import { EvolutionCutscene } from "@/components/evolution-cutscene";
+import { supabase } from "@/lib/supabase";
 import type { BattleRound } from "@/lib/battle-engine";
 import type { Monster } from "@/lib/types";
 
-type PageMode = "bracket" | "fighting";
+type PageMode = "bracket" | "fighting" | "evolving";
 
 export default function BattlePage() {
   const router = useRouter();
-  const { players, tournament, setMatchResult, advanceMatch, phase } =
-    useGameStore();
+  const {
+    players,
+    tournament,
+    setMatchResult,
+    advanceMatch,
+    phase,
+    saveBattle,
+    pendingEvolution,
+    setPendingEvolution,
+    setPlayerMonster,
+  } = useGameStore();
   const [mode, setMode] = useState<PageMode>("bracket");
   const [activeMatchIndex, setActiveMatchIndex] = useState<number | null>(null);
 
@@ -38,7 +49,27 @@ export default function BattlePage() {
     setMode("fighting");
   }
 
-  function handleFightComplete(result: {
+  async function checkEvolutionEligibility(
+    monster: Monster,
+    playerIndex: number
+  ): Promise<boolean> {
+    if (monster.stage >= 3) return false;
+
+    const thresholdKey =
+      monster.stage === 1 ? "evo_threshold_2" : "evo_threshold_3";
+    const threshold = monster[thresholdKey as keyof Monster] as number | null;
+    if (threshold === null) return false;
+
+    // Count total wins for this monster
+    const { count } = await supabase
+      .from("battles")
+      .select("*", { count: "exact", head: true })
+      .eq("winner_id", monster.id);
+
+    return (count ?? 0) >= threshold;
+  }
+
+  async function handleFightComplete(result: {
     winner: Monster;
     loser: Monster;
     rounds: BattleRound[];
@@ -47,7 +78,6 @@ export default function BattlePage() {
     if (activeMatchIndex === null) return;
 
     const match = tournament!.matches[activeMatchIndex];
-    // Determine which player index won
     const playerAMonster = players[match.playerA!]?.monster;
     const winnerPlayerIdx =
       playerAMonster && playerAMonster.id === result.winner.id
@@ -63,10 +93,54 @@ export default function BattlePage() {
       result.narration
     );
 
-    // Advance to next match or finish
+    // Save battle immediately
+    await saveBattle(result.winner.id, result.loser.id);
+
+    // Check if winner qualifies for evolution
+    const eligible = await checkEvolutionEligibility(
+      result.winner,
+      winnerPlayerIdx
+    );
+
+    if (eligible) {
+      setPendingEvolution({
+        monsterId: result.winner.id,
+        playerIndex: winnerPlayerIdx,
+      });
+      setMode("evolving");
+    } else {
+      advanceMatch();
+      setMode("bracket");
+      setActiveMatchIndex(null);
+    }
+  }
+
+  function handleEvolutionComplete(evolved: Monster) {
+    if (pendingEvolution) {
+      // Update the player's monster with evolved version
+      setPlayerMonster(pendingEvolution.playerIndex, evolved);
+    }
+    setPendingEvolution(null);
     advanceMatch();
     setMode("bracket");
     setActiveMatchIndex(null);
+  }
+
+  // ─── Evolving mode ────────────────────────────────────────────────
+  if (mode === "evolving" && pendingEvolution) {
+    const monster = players[pendingEvolution.playerIndex]?.monster;
+    if (!monster) {
+      setMode("bracket");
+      return null;
+    }
+
+    return (
+      <EvolutionCutscene
+        monster={monster}
+        playerIndex={pendingEvolution.playerIndex}
+        onComplete={handleEvolutionComplete}
+      />
+    );
   }
 
   // ─── Fighting mode ─────────────────────────────────────────────────
@@ -76,7 +150,6 @@ export default function BattlePage() {
     const monsterB = players[match.playerB!]?.monster;
 
     if (!monsterA || !monsterB) {
-      // Shouldn't happen, but recover gracefully
       setMode("bracket");
       return null;
     }

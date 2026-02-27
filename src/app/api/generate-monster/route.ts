@@ -1,46 +1,21 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabase } from "@/lib/supabase";
+import { normalizeStats } from "@/lib/normalize-stats";
 
 const openai = new OpenAI();
 
 const IMAGE_PROMPT = (name: string) =>
-  `A 16-bit SNES-style pixel art monster named "${name}". Front-facing full body on a solid blue (#4a90d9) background. 16-color palette, bold outlines, cute but fierce. No text or UI elements.`;
+  `A 16-bit SNES-style pixel art baby creature named "${name}". Based on a real animal but with fantastical monster traits. Small, round, chibi proportions with oversized eyes and a tiny body. Adorable and innocent like a young animal cub or hatchling. Front-facing full body on a solid blue (#4a90d9) background. 16-color palette, bold outlines. No text or UI elements.`;
 
 const STAT_BUDGET = 280;
 
 const STATS_PROMPT = (name: string) =>
-  `You are a game designer. Generate battle stats for a monster named "${name}".
-Return ONLY a JSON object with these fields (integers 30-100):
-{ "hp": number, "attack": number, "defense": number, "speed": number }
-Stats should feel thematic for the name. Distribute exactly ${STAT_BUDGET} points total.`;
-
-/** Clamp each stat 30-100, then proportionally scale to hit STAT_BUDGET */
-function normalizeStats(raw: {
-  hp: number;
-  attack: number;
-  defense: number;
-  speed: number;
-}): { hp: number; attack: number; defense: number; speed: number } {
-  const keys = ["hp", "attack", "defense", "speed"] as const;
-  const clamped = {} as Record<(typeof keys)[number], number>;
-  for (const k of keys) {
-    clamped[k] = Math.max(30, Math.min(100, Math.round(raw[k])));
-  }
-  const sum = keys.reduce((s, k) => s + clamped[k], 0);
-  if (sum === STAT_BUDGET) return clamped;
-
-  // Scale proportionally
-  const scale = STAT_BUDGET / sum;
-  for (const k of keys) {
-    clamped[k] = Math.max(30, Math.min(100, Math.round(clamped[k] * scale)));
-  }
-  // Fix rounding residual on hp
-  const newSum = keys.reduce((s, k) => s + clamped[k], 0);
-  clamped.hp += STAT_BUDGET - newSum;
-
-  return clamped;
-}
+  `You are a game designer. Generate battle stats and a short backstory for a monster named "${name}".
+Return ONLY a JSON object with these fields:
+{ "hp": number, "attack": number, "defense": number, "speed": number, "backstory": string }
+Stats should be integers 30-100 and feel thematic for the name. Distribute exactly ${STAT_BUDGET} points across hp/attack/defense/speed.
+The backstory should be 1-2 sentences describing the monster's origin or personality, written in a fun retro RPG style.`;
 
 export async function POST(req: Request) {
   try {
@@ -61,7 +36,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ monster: existing });
     }
 
-    // Generate image + stats in parallel
+    // Generate image + stats/backstory in parallel
     const [imageResult, statsResult] = await Promise.all([
       openai.images.generate({
         model: "gpt-image-1",
@@ -77,11 +52,16 @@ export async function POST(req: Request) {
       }),
     ]);
 
-    // Parse stats and normalize to fixed budget
-    const rawStats = JSON.parse(
+    // Parse stats + backstory, normalize to fixed budget
+    const raw = JSON.parse(
       statsResult.choices[0].message.content ?? "{}"
-    ) as { hp: number; attack: number; defense: number; speed: number };
-    const stats = normalizeStats(rawStats);
+    ) as { hp: number; attack: number; defense: number; speed: number; backstory: string };
+    const stats = normalizeStats(raw, STAT_BUDGET, 100);
+    const backstory = typeof raw.backstory === "string" ? raw.backstory : "";
+
+    // Generate random evolution thresholds
+    const evo_threshold_2 = Math.floor(Math.random() * 6) + 5;  // 5-10
+    const evo_threshold_3 = Math.floor(Math.random() * 16) + 15; // 15-30
 
     // Upload image to Supabase Storage
     const imageB64 = imageResult.data?.[0]?.b64_json;
@@ -124,6 +104,10 @@ export async function POST(req: Request) {
         defense: stats.defense,
         speed: stats.speed,
         image_url: publicUrl,
+        backstory,
+        stage: 1,
+        evo_threshold_2,
+        evo_threshold_3,
       })
       .select()
       .single();

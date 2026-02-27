@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { useGameStore } from "@/lib/store";
 import { MonsterCard } from "@/components/monster-card";
 import { RetroButton } from "@/components/retro-button";
 import { RetroCard } from "@/components/retro-card";
-import { supabase } from "@/lib/supabase";
 
 export default function ResultsPage() {
   const router = useRouter();
   const { players, tournament, reset } = useGameStore();
-  const [saved, setSaved] = useState(false);
-  const didSave = useRef(false);
 
   const champion =
     tournament?.champion !== null && tournament?.champion !== undefined
@@ -23,46 +20,8 @@ export default function ResultsPage() {
   useEffect(() => {
     if (!tournament || tournament.champion === null) {
       router.push("/");
-      return;
     }
-
-    // Persist each completed match as a battle record (guard against strict mode double-fire)
-    async function saveBattles() {
-      if (!tournament || didSave.current) return;
-      didSave.current = true;
-      const inserts: { winner_id: string; loser_id: string }[] = [];
-
-      for (const match of tournament.matches) {
-        if (
-          match.winner === null ||
-          match.playerA === null ||
-          match.playerB === null
-        )
-          continue;
-
-        const winnerMonster = players[match.winner]?.monster;
-        const loserIdx =
-          match.winner === match.playerA ? match.playerB : match.playerA;
-        const loserMonster = players[loserIdx]?.monster;
-
-        if (winnerMonster && loserMonster) {
-          inserts.push({
-            winner_id: winnerMonster.id,
-            loser_id: loserMonster.id,
-          });
-        }
-      }
-
-      if (inserts.length > 0) {
-        const { error } = await supabase.from("battles").insert(inserts);
-        if (error) console.error("Failed to save battles:", error);
-        else setSaved(true);
-      }
-    }
-
-    saveBattles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tournament, router]);
 
   function handlePlayAgain() {
     reset();
@@ -140,15 +99,14 @@ export default function ResultsPage() {
         </motion.div>
       )}
 
-      {saved && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="font-retro text-[8px] text-retro-green"
-        >
-          {completedMatches.length} battle{completedMatches.length !== 1 ? "s" : ""} recorded!
-        </motion.p>
-      )}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="font-retro text-[8px] text-retro-green"
+      >
+        {completedMatches.length} battle{completedMatches.length !== 1 ? "s" : ""} recorded!
+      </motion.p>
 
       <motion.div
         initial={{ opacity: 0 }}
