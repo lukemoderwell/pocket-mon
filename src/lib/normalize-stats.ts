@@ -17,7 +17,11 @@ export function normalizeStats(
   const clamped = {} as Record<(typeof STAT_KEYS)[number], number>;
 
   for (const k of STAT_KEYS) {
-    clamped[k] = Math.max(minStat, Math.min(maxStat, Math.round(raw[k])));
+    const v = Number(raw[k]);
+    // If GPT returned a bad value, use budget/4 as a safe fallback
+    clamped[k] = Number.isFinite(v)
+      ? Math.max(minStat, Math.min(maxStat, Math.round(v)))
+      : Math.round(budget / 4);
   }
 
   const sum = STAT_KEYS.reduce((s, k) => s + clamped[k], 0);

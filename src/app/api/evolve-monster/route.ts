@@ -100,6 +100,15 @@ export async function POST(req: Request) {
     const appearance = typeof raw.appearance === "string" ? raw.appearance : "";
     const moves = normalizeMoves(raw.moves, toStage);
 
+    console.log("Evolution stats debug:", {
+      monsterName: monster.name,
+      fromStage,
+      toStage,
+      rawFromGPT: { hp: raw.hp, attack: raw.attack, defense: raw.defense, speed: raw.speed },
+      normalized: stats,
+      existing: { hp: monster.hp, attack: monster.attack, defense: monster.defense, speed: monster.speed },
+    });
+
     // Step 2: Generate image using the evolved appearance
     const imageResult = await openai.images.generate({
       model: "gpt-image-1",
