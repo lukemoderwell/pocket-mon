@@ -122,13 +122,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMatchResult: (matchIndex, winnerPlayerIndex, log, narration) =>
     set((state) => {
       if (!state.tournament) return {};
-      const tournament = { ...state.tournament, matches: [...state.tournament.matches] };
-      // Deep clone the match being updated
-      tournament.matches[matchIndex] = {
-        ...tournament.matches[matchIndex],
-        battleLog: log,
-        narration,
-      };
+      // Deep-clone every match so advanceWinner (which mutates in place,
+      // including recursively for bye auto-advancement) never touches
+      // the previous state snapshot.
+      const matches = state.tournament.matches.map((m) => ({ ...m }));
+      matches[matchIndex] = { ...matches[matchIndex], battleLog: log, narration };
+      const tournament = { ...state.tournament, matches };
       advanceWinner(tournament, matchIndex, winnerPlayerIndex);
       return { tournament };
     }),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
 import { RetroButton } from "./retro-button";
@@ -43,13 +43,20 @@ export function EvolutionCutscene({
     }
   }, [monster.id]);
 
+  // Guard against double-triggering evolution (React Strict Mode
+  // double-invokes effects, and the `evolved` state change can also
+  // re-fire this effect while still in "announce" phase).
+  const evolutionStarted = useRef(false);
+
   // Phase sequencing
   useEffect(() => {
     const timers: NodeJS.Timeout[] = [];
 
     if (phase === "announce") {
-      // Start API call during announce phase
-      triggerEvolution();
+      if (!evolutionStarted.current) {
+        evolutionStarted.current = true;
+        triggerEvolution();
+      }
       timers.push(setTimeout(() => setPhase("shaking"), 2000));
     } else if (phase === "shaking") {
       timers.push(setTimeout(() => setPhase("flash"), 2500));
