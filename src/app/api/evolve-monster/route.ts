@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { supabase } from "@/lib/supabase";
 import { normalizeStats } from "@/lib/normalize-stats";
+import { normalizeMoves } from "@/lib/normalize-moves";
+import type { Move } from "@/lib/types";
 
 const openai = new OpenAI();
 
@@ -15,15 +17,23 @@ const STAGE_DESCRIPTORS: Record<number, string> = {
   3: "Final, fully evolved apex form. Towering, muscular, and intimidating with battle-hardened details, intense piercing eyes, and a powerful dominant pose. A fearsome adult creature at the peak of its strength.",
 };
 
-const EVO_IMAGE_PROMPT = (name: string, stage: number) =>
-  `A 16-bit SNES-style pixel art monster named "${name}". ${STAGE_DESCRIPTORS[stage]} Front-facing full body on a solid blue (#4a90d9) background. 16-color palette, bold outlines. No text or UI elements.`;
+const EVO_IMAGE_PROMPT = (name: string, stage: number, appearance: string) =>
+  `A 16-bit SNES-style pixel art monster named "${name}". ${appearance || STAGE_DESCRIPTORS[stage]} Front-facing full body on a solid blue (#4a90d9) background. 16-color palette, bold outlines. No text or UI elements.`;
 
-const EVO_STATS_PROMPT = (name: string, stage: number, budget: number) =>
-  `You are a game designer. Generate evolved battle stats and an updated backstory for a stage ${stage} monster named "${name}".
+const EVO_STATS_PROMPT = (name: string, stage: number, budget: number, currentMoves: Move[]) =>
+  `You are a game designer. Generate evolved battle stats, an updated visual appearance, backstory, and two upgraded battle moves for a stage ${stage} monster named "${name}".
+${currentMoves.length > 0 ? `Current moves: ${currentMoves.map(m => `${m.name} (${m.effect})`).join(", ")}. Evolve these into stronger thematic versions.` : ""}
 Return ONLY a JSON object with these fields:
-{ "hp": number, "attack": number, "defense": number, "speed": number, "backstory": string }
+{
+  "hp": number, "attack": number, "defense": number, "speed": number,
+  "backstory": string,
+  "appearance": string,
+  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" }, { "name": string, "effect": "strike" | "guard" | "rush" }]
+}
 Stats should be integers 30-${stage === 2 ? 120 : 140} and feel thematic for an evolved monster. Distribute exactly ${budget} points across hp/attack/defense/speed.
-The backstory should be 1-2 sentences describing the monster's evolution, written in a fun retro RPG style.`;
+The backstory should be 1-2 sentences describing the monster's evolution, written in a fun retro RPG style.
+The appearance should be a vivid 1-2 sentence visual description showing how the creature has grown more powerful — larger, fiercer, more dramatic features than its previous form.
+Moves should be upgraded versions of the previous moves with more powerful, dramatic names.`;
 
 export async function POST(req: Request) {
   try {
@@ -69,29 +79,35 @@ export async function POST(req: Request) {
     }
 
     const config = STAGE_CONFIG[toStage as 2 | 3];
+    const currentMoves: Move[] = Array.isArray(monster.moves) ? monster.moves : [];
 
-    // Generate new image + stats/backstory in parallel
-    const [imageResult, statsResult] = await Promise.all([
-      openai.images.generate({
-        model: "gpt-image-1",
-        prompt: EVO_IMAGE_PROMPT(monster.name, toStage),
-        n: 1,
-        size: "1024x1024",
-        quality: "medium",
-      }),
-      openai.chat.completions.create({
-        model: "gpt-4.1-mini",
-        messages: [{ role: "user", content: EVO_STATS_PROMPT(monster.name, toStage, config.budget) }],
-        response_format: { type: "json_object" },
-      }),
-    ]);
+    // Step 1: Generate stats, appearance, backstory, and evolved moves
+    const statsResult = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [{ role: "user", content: EVO_STATS_PROMPT(monster.name, toStage, config.budget, currentMoves) }],
+      response_format: { type: "json_object" },
+    });
 
-    // Parse stats + backstory
     const raw = JSON.parse(
       statsResult.choices[0].message.content ?? "{}"
-    ) as { hp: number; attack: number; defense: number; speed: number; backstory: string };
+    ) as {
+      hp: number; attack: number; defense: number; speed: number;
+      backstory: string; appearance: string;
+      moves: { name: string; effect: string }[];
+    };
     const stats = normalizeStats(raw, config.budget, config.maxStat);
     const backstory = typeof raw.backstory === "string" ? raw.backstory : monster.backstory;
+    const appearance = typeof raw.appearance === "string" ? raw.appearance : "";
+    const moves = normalizeMoves(raw.moves, toStage);
+
+    // Step 2: Generate image using the evolved appearance
+    const imageResult = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt: EVO_IMAGE_PROMPT(monster.name, toStage, appearance),
+      n: 1,
+      size: "1024x1024",
+      quality: "medium",
+    });
 
     // Upload new image
     const imageB64 = imageResult.data?.[0]?.b64_json;
@@ -134,6 +150,8 @@ export async function POST(req: Request) {
         speed: stats.speed,
         image_url: publicUrl,
         backstory,
+        appearance,
+        moves,
         stage: toStage,
       })
       .eq("id", monster_id)

@@ -1,3 +1,12 @@
+export type MoveEffect = "strike" | "guard" | "rush";
+
+export interface Move {
+  name: string;
+  effect: MoveEffect;
+  power: number;
+  cooldown: number;
+}
+
 export interface Monster {
   id: string;
   name: string;
@@ -7,6 +16,8 @@ export interface Monster {
   speed: number;
   image_url: string;
   backstory: string;
+  appearance: string;
+  moves: Move[];
   stage: number;
   evo_threshold_2: number | null;
   evo_threshold_3: number | null;
@@ -32,6 +43,7 @@ export interface LeaderboardEntry {
   attack: number;
   image_url: string;
   stage: number;
+  moves: Move[];
 }
 
 export interface EvolutionResult {

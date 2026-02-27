@@ -88,7 +88,7 @@ export default function BattlePage() {
       activeMatchIndex,
       winnerPlayerIdx,
       result.rounds.map(
-        (r) => `${r.attacker} deals ${r.damage} to ${r.defender}`
+        (r) => `${r.attacker} uses ${r.moveName}! ${r.damage} damage to ${r.defender}`
       ),
       result.narration
     );

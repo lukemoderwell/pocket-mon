@@ -21,7 +21,7 @@ Total rounds: ${rounds.length}
 Key moments:
 ${rounds
   .slice(0, 6)
-  .map((r) => `${r.attacker} hits ${r.defender} for ${r.damage} damage`)
+  .map((r) => `${r.attacker} uses ${r.moveName || "an attack"} (${r.moveEffect || "strike"}) on ${r.defender} for ${r.damage} damage`)
   .join("\n")}
 
 Write in the style of a classic SNES RPG. Be dramatic but concise. Use present tense. No emojis.`;

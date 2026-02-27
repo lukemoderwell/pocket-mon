@@ -42,7 +42,7 @@ export default function Home() {
       const monsterIds = [...stats.keys()];
       const { data: monsters } = await supabase
         .from("monsters")
-        .select("id, name, attack, image_url, stage")
+        .select("id, name, attack, image_url, stage, moves")
         .in("id", monsterIds);
       if (!monsters) return;
 
@@ -57,6 +57,7 @@ export default function Home() {
             attack: m.attack,
             image_url: m.image_url,
             stage: m.stage ?? 1,
+            moves: Array.isArray(m.moves) ? m.moves : [],
           };
         })
         .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
@@ -158,45 +159,53 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-2">
               {leaderboard.map((entry, i) => (
-                <div
-                  key={entry.monster_name}
-                  className="flex items-center gap-3"
-                >
-                  <span className="font-retro text-[10px] text-retro-accent w-4">
-                    {i + 1}.
-                  </span>
-                  <div className="relative h-8 w-8 overflow-hidden border border-retro-white bg-[#4a90d9]">
-                    <Image
-                      src={entry.image_url}
-                      alt={entry.monster_name}
-                      fill
-                      className="object-contain"
-                      unoptimized
-                    />
+                <div key={entry.monster_name} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-3">
+                    <span className="font-retro text-[10px] text-retro-accent w-4">
+                      {i + 1}.
+                    </span>
+                    <div className="relative h-8 w-8 overflow-hidden border border-retro-white bg-[#4a90d9]">
+                      <Image
+                        src={entry.image_url}
+                        alt={entry.monster_name}
+                        fill
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                    <span className="font-retro text-[8px] flex-1 truncate">
+                      {entry.monster_name}
+                    </span>
+                    <span className="font-retro text-[8px] w-10 text-center">
+                      <span className="text-retro-green">{entry.wins}</span>
+                      <span className="text-retro-white/30">/</span>
+                      <span className="text-retro-accent">{entry.losses}</span>
+                    </span>
+                    <span className="font-retro text-[8px] text-retro-gold w-8 text-right">
+                      {entry.attack}
+                    </span>
+                    <span className="font-retro text-[8px] w-8 text-right flex justify-end gap-0.5">
+                      {[1, 2, 3].map((s) => (
+                        <span
+                          key={s}
+                          className={`text-[6px] ${
+                            s <= entry.stage ? "text-retro-gold" : "text-retro-white/20"
+                          }`}
+                        >
+                          ◆
+                        </span>
+                      ))}
+                    </span>
                   </div>
-                  <span className="font-retro text-[8px] flex-1 truncate">
-                    {entry.monster_name}
-                  </span>
-                  <span className="font-retro text-[8px] w-10 text-center">
-                    <span className="text-retro-green">{entry.wins}</span>
-                    <span className="text-retro-white/30">/</span>
-                    <span className="text-retro-accent">{entry.losses}</span>
-                  </span>
-                  <span className="font-retro text-[8px] text-retro-gold w-8 text-right">
-                    {entry.attack}
-                  </span>
-                  <span className="font-retro text-[8px] w-8 text-right flex justify-end gap-0.5">
-                    {[1, 2, 3].map((s) => (
-                      <span
-                        key={s}
-                        className={`text-[6px] ${
-                          s <= entry.stage ? "text-retro-gold" : "text-retro-white/20"
-                        }`}
-                      >
-                        ◆
-                      </span>
-                    ))}
-                  </span>
+                  {entry.moves.length > 0 && (
+                    <div className="ml-[52px] flex gap-2">
+                      {entry.moves.map((m) => (
+                        <span key={m.name} className="font-retro text-[6px] text-retro-white/30">
+                          {m.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

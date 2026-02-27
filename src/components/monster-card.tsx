@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { RetroCard } from "./retro-card";
-import type { Monster } from "@/lib/types";
+import type { Monster, MoveEffect } from "@/lib/types";
 
 interface MonsterCardProps {
   monster: Monster;
@@ -35,6 +35,17 @@ export function MonsterCard({ monster, highlight, compact }: MonsterCardProps) {
           <StatRow label="DEF" value={monster.defense} color="text-retro-blue" />
           <StatRow label="SPD" value={monster.speed} color="text-retro-gold" />
         </div>
+        {!compact && monster.moves && monster.moves.length > 0 && (
+          <div className="w-full flex flex-col gap-1 mt-1">
+            <span className="font-retro text-[6px] text-retro-white/30 uppercase">Moves</span>
+            {monster.moves.map((move) => (
+              <div key={move.name} className="flex justify-between items-center">
+                <span className="font-retro text-[7px] text-retro-white/80">{move.name}</span>
+                <MoveEffectBadge effect={move.effect} />
+              </div>
+            ))}
+          </div>
+        )}
         {!compact && monster.backstory && (
           <p className="font-retro text-[7px] text-retro-white/50 text-center leading-relaxed">
             {monster.backstory}
@@ -76,5 +87,19 @@ function StatRow({
       <span className="text-retro-white/60">{label}</span>
       <span className={color}>{value}</span>
     </div>
+  );
+}
+
+const EFFECT_COLORS: Record<MoveEffect, string> = {
+  strike: "text-retro-white bg-retro-white/10",
+  guard: "text-retro-blue bg-retro-blue/10",
+  rush: "text-retro-accent bg-retro-accent/10",
+};
+
+function MoveEffectBadge({ effect }: { effect: MoveEffect }) {
+  return (
+    <span className={`font-retro text-[6px] px-1.5 py-0.5 uppercase ${EFFECT_COLORS[effect] || EFFECT_COLORS.strike}`}>
+      {effect}
+    </span>
   );
 }

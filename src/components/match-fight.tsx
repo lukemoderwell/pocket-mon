@@ -157,7 +157,11 @@ export function MatchFight({
             >
               {currentRound > 0 && currentRound <= rounds.length && (
                 <p className="font-retro text-[8px] text-retro-white leading-relaxed">
-                  {rounds[currentRound - 1].attacker} deals{" "}
+                  {rounds[currentRound - 1].attacker} uses{" "}
+                  <span className="text-retro-gold">
+                    {rounds[currentRound - 1].moveName}
+                  </span>
+                  !{" "}
                   <span className="text-retro-accent">
                     {rounds[currentRound - 1].damage}
                   </span>{" "}

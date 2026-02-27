@@ -180,6 +180,20 @@ export function EvolutionCutscene({
               <StatDelta label="SPD" before={monster.speed} after={evolved.speed} />
             </div>
 
+            {/* New moves */}
+            {evolved.moves && evolved.moves.length > 0 && (
+              <div className="flex flex-col items-center gap-1 mt-2">
+                <span className="font-retro text-[7px] text-retro-white/40 uppercase">New Moves</span>
+                <div className="flex gap-3">
+                  {evolved.moves.map((move) => (
+                    <span key={move.name} className="font-retro text-[8px] text-retro-gold">
+                      {move.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {phase === "done" && (
               <motion.div
                 initial={{ opacity: 0 }}
