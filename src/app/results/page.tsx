@@ -1,44 +1,80 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { useGameStore } from "@/lib/store";
 import { MonsterCard } from "@/components/monster-card";
 import { RetroButton } from "@/components/retro-button";
+import { RetroCard } from "@/components/retro-card";
 import { supabase } from "@/lib/supabase";
 
 export default function ResultsPage() {
   const router = useRouter();
-  const { winner, loser, reset } = useGameStore();
+  const { players, tournament, reset } = useGameStore();
   const [saved, setSaved] = useState(false);
+  const didSave = useRef(false);
+
+  const champion =
+    tournament?.champion !== null && tournament?.champion !== undefined
+      ? players[tournament.champion]
+      : null;
 
   useEffect(() => {
-    if (!winner || !loser) {
+    if (!tournament || tournament.champion === null) {
       router.push("/");
       return;
     }
 
-    // Persist battle result
-    async function saveBattle() {
-      if (!winner || !loser) return;
-      const { error } = await supabase.from("battles").insert({
-        winner_id: winner.id,
-        loser_id: loser.id,
-      });
-      if (error) console.error("Failed to save battle:", error);
-      else setSaved(true);
+    // Persist each completed match as a battle record (guard against strict mode double-fire)
+    async function saveBattles() {
+      if (!tournament || didSave.current) return;
+      didSave.current = true;
+      const inserts: { winner_id: string; loser_id: string }[] = [];
+
+      for (const match of tournament.matches) {
+        if (
+          match.winner === null ||
+          match.playerA === null ||
+          match.playerB === null
+        )
+          continue;
+
+        const winnerMonster = players[match.winner]?.monster;
+        const loserIdx =
+          match.winner === match.playerA ? match.playerB : match.playerA;
+        const loserMonster = players[loserIdx]?.monster;
+
+        if (winnerMonster && loserMonster) {
+          inserts.push({
+            winner_id: winnerMonster.id,
+            loser_id: loserMonster.id,
+          });
+        }
+      }
+
+      if (inserts.length > 0) {
+        const { error } = await supabase.from("battles").insert(inserts);
+        if (error) console.error("Failed to save battles:", error);
+        else setSaved(true);
+      }
     }
 
-    saveBattle();
-  }, [winner, loser, router]);
+    saveBattles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handlePlayAgain() {
     reset();
     router.push("/");
   }
 
-  if (!winner || !loser) return null;
+  if (!tournament || !champion) return null;
+
+  // Build round summary
+  const completedMatches = tournament.matches.filter(
+    (m) => m.winner !== null && m.playerA !== null && m.playerB !== null
+  );
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
@@ -48,31 +84,61 @@ export default function ResultsPage() {
         transition={{ type: "spring", bounce: 0.5 }}
       >
         <h1 className="font-retro text-sm text-retro-gold text-center">
-          Winner!
+          Champion!
         </h1>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <MonsterCard monster={winner} highlight />
-      </motion.div>
+      {champion.monster && (
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <MonsterCard monster={champion.monster} highlight />
+          <p className="font-retro text-[8px] text-retro-white/50 text-center mt-2">
+            {champion.name}&apos;s monster
+          </p>
+        </motion.div>
+      )}
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.5 }}
-        transition={{ delay: 0.6 }}
-        className="text-center"
-      >
-        <p className="font-retro text-[8px] text-retro-white/40 mb-2">
-          Defeated
-        </p>
-        <p className="font-retro text-[10px] text-retro-accent">
-          {loser.name}
-        </p>
-      </motion.div>
+      {/* Match Results */}
+      {completedMatches.length > 1 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.6 }}
+          className="w-full max-w-xs"
+        >
+          <RetroCard>
+            <h2 className="font-retro text-[10px] text-retro-gold mb-2 text-center">
+              Match Results
+            </h2>
+            <div className="flex flex-col gap-1">
+              {completedMatches.map((match, i) => {
+                const winnerName =
+                  players[match.winner!]?.monster?.name ?? "???";
+                const loserIdx =
+                  match.winner === match.playerA
+                    ? match.playerB!
+                    : match.playerA!;
+                const loserName =
+                  players[loserIdx]?.monster?.name ?? "???";
+
+                return (
+                  <div
+                    key={i}
+                    className="flex justify-between font-retro text-[8px]"
+                  >
+                    <span className="text-retro-green">{winnerName}</span>
+                    <span className="text-retro-white/30">beat</span>
+                    <span className="text-retro-accent">{loserName}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </RetroCard>
+        </motion.div>
+      )}
 
       {saved && (
         <motion.p
@@ -80,7 +146,7 @@ export default function ResultsPage() {
           animate={{ opacity: 1 }}
           className="font-retro text-[8px] text-retro-green"
         >
-          Battle recorded!
+          {completedMatches.length} battle{completedMatches.length !== 1 ? "s" : ""} recorded!
         </motion.p>
       )}
 

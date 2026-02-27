@@ -7,11 +7,40 @@ const openai = new OpenAI();
 const IMAGE_PROMPT = (name: string) =>
   `A 16-bit SNES-style pixel art monster named "${name}". Front-facing full body on a solid blue (#4a90d9) background. 16-color palette, bold outlines, cute but fierce. No text or UI elements.`;
 
+const STAT_BUDGET = 280;
+
 const STATS_PROMPT = (name: string) =>
   `You are a game designer. Generate battle stats for a monster named "${name}".
 Return ONLY a JSON object with these fields (integers 30-100):
 { "hp": number, "attack": number, "defense": number, "speed": number }
-Stats should feel thematic for the name. Total of all stats should be between 180-320 to keep balance.`;
+Stats should feel thematic for the name. Distribute exactly ${STAT_BUDGET} points total.`;
+
+/** Clamp each stat 30-100, then proportionally scale to hit STAT_BUDGET */
+function normalizeStats(raw: {
+  hp: number;
+  attack: number;
+  defense: number;
+  speed: number;
+}): { hp: number; attack: number; defense: number; speed: number } {
+  const keys = ["hp", "attack", "defense", "speed"] as const;
+  const clamped = {} as Record<(typeof keys)[number], number>;
+  for (const k of keys) {
+    clamped[k] = Math.max(30, Math.min(100, Math.round(raw[k])));
+  }
+  const sum = keys.reduce((s, k) => s + clamped[k], 0);
+  if (sum === STAT_BUDGET) return clamped;
+
+  // Scale proportionally
+  const scale = STAT_BUDGET / sum;
+  for (const k of keys) {
+    clamped[k] = Math.max(30, Math.min(100, Math.round(clamped[k] * scale)));
+  }
+  // Fix rounding residual on hp
+  const newSum = keys.reduce((s, k) => s + clamped[k], 0);
+  clamped.hp += STAT_BUDGET - newSum;
+
+  return clamped;
+}
 
 export async function POST(req: Request) {
   try {
@@ -48,10 +77,11 @@ export async function POST(req: Request) {
       }),
     ]);
 
-    // Parse stats
-    const stats = JSON.parse(
+    // Parse stats and normalize to fixed budget
+    const rawStats = JSON.parse(
       statsResult.choices[0].message.content ?? "{}"
     ) as { hp: number; attack: number; defense: number; speed: number };
+    const stats = normalizeStats(rawStats);
 
     // Upload image to Supabase Storage
     const imageB64 = imageResult.data?.[0]?.b64_json;
