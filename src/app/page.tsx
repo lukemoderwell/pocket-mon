@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { motion } from "motion/react";
 import { useGameStore } from "@/lib/store";
@@ -21,59 +22,67 @@ export default function Home() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [selectedMonster, setSelectedMonster] = useState<LeaderboardEntry | null>(null);
 
-  useEffect(() => {
-    async function fetchLeaderboard() {
-      // Fetch battles and compute stats client-side (avoids relying on a DB view)
-      const { data: battles } = await supabase
-        .from("battles")
-        .select("winner_id, loser_id");
-      if (!battles || battles.length === 0) return;
+  const fetchLeaderboard = useCallback(async () => {
+    // Fetch battles and compute stats client-side (avoids relying on a DB view)
+    const { data: battles } = await supabase
+      .from("battles")
+      .select("winner_id, loser_id");
+    if (!battles || battles.length === 0) return;
 
-      // Tally wins and losses per monster id
-      const stats = new Map<string, { wins: number; losses: number }>();
-      for (const b of battles) {
-        const w = stats.get(b.winner_id) ?? { wins: 0, losses: 0 };
-        w.wins++;
-        stats.set(b.winner_id, w);
+    // Tally wins and losses per monster id
+    const stats = new Map<string, { wins: number; losses: number }>();
+    for (const b of battles) {
+      const w = stats.get(b.winner_id) ?? { wins: 0, losses: 0 };
+      w.wins++;
+      stats.set(b.winner_id, w);
 
-        const l = stats.get(b.loser_id) ?? { wins: 0, losses: 0 };
-        l.losses++;
-        stats.set(b.loser_id, l);
-      }
-
-      // Fetch monster details for the monsters that have battle records
-      const monsterIds = [...stats.keys()];
-      const { data: monsters } = await supabase
-        .from("monsters")
-        .select("id, name, hp, attack, defense, speed, image_url, backstory, stage, moves")
-        .in("id", monsterIds);
-      if (!monsters) return;
-
-      // Merge and sort by wins desc, then by win rate
-      const entries: LeaderboardEntry[] = monsters
-        .map((m) => {
-          const s = stats.get(m.id) ?? { wins: 0, losses: 0 };
-          return {
-            monster_name: m.name,
-            wins: s.wins,
-            losses: s.losses,
-            hp: m.hp ?? 0,
-            attack: m.attack,
-            defense: m.defense ?? 0,
-            speed: m.speed ?? 0,
-            image_url: m.image_url,
-            backstory: m.backstory ?? "",
-            stage: m.stage ?? 1,
-            moves: Array.isArray(m.moves) ? m.moves : [],
-          };
-        })
-        .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
-        .slice(0, 5);
-
-      setLeaderboard(entries);
+      const l = stats.get(b.loser_id) ?? { wins: 0, losses: 0 };
+      l.losses++;
+      stats.set(b.loser_id, l);
     }
-    fetchLeaderboard();
+
+    // Fetch monster details for the monsters that have battle records
+    const monsterIds = [...stats.keys()];
+    const { data: monsters } = await supabase
+      .from("monsters")
+      .select("id, name, hp, attack, defense, speed, image_url, backstory, stage, moves")
+      .in("id", monsterIds);
+    if (!monsters) return;
+
+    // Merge and sort by wins desc, then by win rate
+    const entries: LeaderboardEntry[] = monsters
+      .map((m) => {
+        const s = stats.get(m.id) ?? { wins: 0, losses: 0 };
+        return {
+          monster_name: m.name,
+          wins: s.wins,
+          losses: s.losses,
+          hp: m.hp ?? 0,
+          attack: m.attack,
+          defense: m.defense ?? 0,
+          speed: m.speed ?? 0,
+          image_url: m.image_url,
+          backstory: m.backstory ?? "",
+          stage: m.stage ?? 1,
+          moves: Array.isArray(m.moves) ? m.moves : [],
+        };
+      })
+      .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
+      .slice(0, 5);
+
+    setLeaderboard(entries);
   }, []);
+
+  // Fetch on mount + re-fetch when page regains focus (e.g. returning from battle)
+  useEffect(() => {
+    fetchLeaderboard();
+
+    function handleVisibility() {
+      if (document.visibilityState === "visible") fetchLeaderboard();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [fetchLeaderboard]);
 
   function handleStart() {
     reset();
@@ -150,7 +159,7 @@ export default function Home() {
             <div className="flex flex-col gap-3">
               {leaderboard.map((entry, i) => (
                 <button
-                  key={entry.monster_name}
+                  key={`${entry.monster_name}-${i}`}
                   onClick={() => setSelectedMonster(entry)}
                   className="flex items-center gap-4 p-2 -mx-2 rounded transition-colors hover:bg-retro-white/5 active:bg-retro-white/10 text-left"
                 >
@@ -196,6 +205,12 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            <Link
+              href="/pokedex"
+              className="block mt-4 font-retro text-[8px] text-retro-white/40 text-center hover:text-retro-white/70 transition-colors"
+            >
+              View All →
+            </Link>
           </RetroCard>
         </motion.div>
       )}

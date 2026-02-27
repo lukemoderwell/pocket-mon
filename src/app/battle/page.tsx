@@ -93,8 +93,17 @@ export default function BattlePage() {
       result.narration
     );
 
-    // Save battle immediately
-    await saveBattle(result.winner.id, result.loser.id);
+    // Save battle — must succeed before checking evolution eligibility
+    try {
+      await saveBattle(result.winner.id, result.loser.id);
+    } catch {
+      // Battle didn't persist; skip evolution check but keep the game moving
+      console.error("Battle save failed, skipping evolution check");
+      advanceMatch();
+      setMode("bracket");
+      setActiveMatchIndex(null);
+      return;
+    }
 
     // Check if winner qualifies for evolution
     const eligible = await checkEvolutionEligibility(

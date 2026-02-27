@@ -150,7 +150,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { error } = await supabase
       .from("battles")
       .insert({ winner_id: winnerId, loser_id: loserId });
-    if (error) console.error("Failed to save battle:", error);
+    if (error) {
+      console.error("Failed to save battle:", error);
+      throw new Error("Failed to save battle");
+    }
   },
 
   setPendingEvolution: (pending) => set({ pendingEvolution: pending }),
