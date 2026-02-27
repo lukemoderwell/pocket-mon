@@ -39,6 +39,7 @@ export function buildBracket(playerCount: number): TournamentState {
       winner,
       battleLog: [],
       narration: "",
+      isBye: playerA === null && playerB === null,
     });
   }
 
@@ -55,6 +56,7 @@ export function buildBracket(playerCount: number): TournamentState {
         winner: null,
         battleLog: [],
         narration: "",
+        isBye: false,
       });
     }
   }
@@ -77,24 +79,15 @@ export function buildBracket(playerCount: number): TournamentState {
 }
 
 /**
- * Propagate bye winners forward through the bracket. Uses a Set to track
- * genuine "permanent bye" matches (will never produce a real fight) so we
- * don't confuse them with pending matches that just haven't been filled yet.
+ * Propagate bye winners forward through the bracket at creation time.
+ * Marks descendant matches as isBye when both feeders are permanent byes.
+ * Runtime bye handling (when a real match completes next to a bye) is
+ * handled by the recursive call in advanceWinner().
  */
 function propagateByes(
   matches: BracketMatch[],
   totalRounds: number
 ): void {
-  // Track match indices that are permanent byes (no real players will ever appear)
-  const byeIndices = new Set<number>();
-
-  // Round 1 double byes: both slots empty
-  for (const m of matches) {
-    if (m.round === 1 && m.playerA === null && m.playerB === null) {
-      byeIndices.add(m.index);
-    }
-  }
-
   for (let round = 1; round < totalRounds; round++) {
     const roundMatches = matches.filter((m) => m.round === round);
     const nextRoundMatches = matches.filter((m) => m.round === round + 1);
@@ -113,19 +106,16 @@ function propagateByes(
         nextMatch.playerB = matchB.winner;
       }
 
-      const matchAIsBye = matchA && byeIndices.has(matchA.index);
-      const matchBIsBye = matchB && byeIndices.has(matchB.index);
-
       // Both feeders are permanent byes → this match is also a permanent bye
-      if (matchAIsBye && matchBIsBye) {
-        byeIndices.add(nextMatch.index);
+      if (matchA?.isBye && matchB?.isBye) {
+        nextMatch.isBye = true;
         continue;
       }
 
       // One player advanced, other feeder is a permanent bye → auto-advance
-      if (nextMatch.playerA !== null && nextMatch.playerB === null && matchBIsBye) {
+      if (nextMatch.playerA !== null && nextMatch.playerB === null && matchB?.isBye) {
         nextMatch.winner = nextMatch.playerA;
-      } else if (nextMatch.playerB !== null && nextMatch.playerA === null && matchAIsBye) {
+      } else if (nextMatch.playerB !== null && nextMatch.playerA === null && matchA?.isBye) {
         nextMatch.winner = nextMatch.playerB;
       }
     }
@@ -193,6 +183,16 @@ export function advanceWinner(
       nextMatch.playerA = siblingMatch.winner;
     } else {
       nextMatch.playerB = siblingMatch.winner;
+    }
+  }
+
+  // If sibling is a permanent bye, the just-placed player auto-advances.
+  // Recurse so the winner propagates through any further bye rounds.
+  if (siblingMatch?.isBye) {
+    if (nextMatch.playerA !== null && nextMatch.playerB === null) {
+      advanceWinner(state, nextMatch.index, nextMatch.playerA);
+    } else if (nextMatch.playerB !== null && nextMatch.playerA === null) {
+      advanceWinner(state, nextMatch.index, nextMatch.playerB);
     }
   }
 }

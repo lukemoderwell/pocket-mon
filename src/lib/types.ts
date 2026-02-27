@@ -55,6 +55,8 @@ export interface BracketMatch {
   winner: number | null;
   battleLog: string[];
   narration: string;
+  /** True if this match is a permanent bye (no real players will ever appear) */
+  isBye: boolean;
 }
 
 export interface TournamentState {
