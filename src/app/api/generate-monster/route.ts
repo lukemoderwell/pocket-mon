@@ -7,23 +7,33 @@ import { normalizeMoves } from "@/lib/normalize-moves";
 const openai = new OpenAI();
 
 const IMAGE_PROMPT = (name: string, appearance: string) =>
-  `A 16-bit SNES-style pixel art creature named "${name}". ${appearance}. Front-facing full body on a solid blue (#4a90d9) background. 16-color palette, bold outlines. No text or UI elements.`;
+  `A 16-bit SNES-style pixel art creature named "${name}". ${appearance}. Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette, friendly rounded proportions even if tough. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
 
-const STAT_BUDGET = 280;
+const STAT_BUDGET = 340;
 
 const STATS_PROMPT = (name: string) =>
-  `You are a game designer. Generate battle stats, a vivid visual appearance, a short backstory, and two battle moves for a stage 1 baby monster named "${name}".
+  `You are a creature designer for a monster battling game. Generate stats, appearance, a Pokedex entry, and two battle moves for a stage 1 baby monster named "${name}".
 Return ONLY a JSON object with these fields:
 {
-  "hp": number, "attack": number, "defense": number, "speed": number,
+  "hp": number, "attack": number, "defense": number, "sp_attack": number, "speed": number,
   "backstory": string,
   "appearance": string,
-  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" }, { "name": string, "effect": "strike" | "guard" | "rush" }]
+  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special" }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special" }]
 }
-Stats should be integers 30-100 and feel thematic for the name. Distribute exactly ${STAT_BUDGET} points across hp/attack/defense/speed.
-The backstory should be 1-2 sentences in a fun retro RPG style.
-The appearance should be a vivid 1-2 sentence visual description of the creature's body, colors, distinctive features, and personality — be specific and creative, not generic. Think of it as art direction for a pixel artist.
-Each move has a name (creative, thematic) and an effect type: "strike" (reliable), "guard" (defensive), or "rush" (heavy hitter). Give each monster a different combination.`;
+
+STATS: Integers 30-100. Distribute exactly ${STAT_BUDGET} points across hp/attack/defense/sp_attack/speed. Create a distinct archetype — don't make all stats similar. A physical bruiser should have high attack but low sp_attack. A mystic creature should have high sp_attack but low attack. Tanks have high hp+defense but low speed, etc.
+
+BACKSTORY: Write a Pokedex-style field observation — 1-2 sentences about the creature's biology, behavior, or habitat. NOT an origin story. Think nature documentary, not fantasy novel.
+Examples of the tone:
+- "For some time after its birth, it uses the nutrients that are packed into the seed on its back in order to grow."
+- "The flame on its tail shows the strength of its life-force. If it is weak, the flame also burns weakly."
+- "It digs deep burrows to live in. When in danger, it rolls up its body to withstand attacks."
+
+APPEARANCE: A vivid 1-2 sentence visual description for a pixel artist. Focus on: one distinctive body feature, specific colors, personality expressed through posture/expression. Aim for a design that reads clearly as a small silhouette.
+
+MOVES: Each move has a name (creative, thematic), an effect type, and a category.
+Effects: "strike" (reliable damage), "guard" (defensive, reduces incoming damage), "rush" (heavy hitter but leaves user exposed), "drain" (heals attacker for portion of damage), "stun" (chance to skip opponent's turn).
+Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.`;
 
 export async function POST(req: Request) {
   try {
@@ -54,9 +64,9 @@ export async function POST(req: Request) {
     const raw = JSON.parse(
       statsResult.choices[0].message.content ?? "{}"
     ) as {
-      hp: number; attack: number; defense: number; speed: number;
+      hp: number; attack: number; defense: number; sp_attack: number; speed: number;
       backstory: string; appearance: string;
-      moves: { name: string; effect: string }[];
+      moves: { name: string; effect: string; category: string }[];
     };
     const stats = normalizeStats(raw, STAT_BUDGET, 100);
     const backstory = typeof raw.backstory === "string" ? raw.backstory : "";
@@ -115,6 +125,7 @@ export async function POST(req: Request) {
         hp: stats.hp,
         attack: stats.attack,
         defense: stats.defense,
+        sp_attack: stats.sp_attack,
         speed: stats.speed,
         image_url: publicUrl,
         backstory,

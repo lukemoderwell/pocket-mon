@@ -1,6 +1,6 @@
-const STAT_KEYS = ["hp", "attack", "defense", "speed"] as const;
+const STAT_KEYS = ["hp", "attack", "defense", "sp_attack", "speed"] as const;
 
-type Stats = { hp: number; attack: number; defense: number; speed: number };
+type Stats = { hp: number; attack: number; defense: number; sp_attack: number; speed: number };
 
 /**
  * Clamp each stat to [30, maxStat], then proportionally scale to hit the budget.
@@ -18,10 +18,10 @@ export function normalizeStats(
 
   for (const k of STAT_KEYS) {
     const v = Number(raw[k]);
-    // If GPT returned a bad value, use budget/4 as a safe fallback
+    // If GPT returned a bad value, use budget/5 as a safe fallback
     clamped[k] = Number.isFinite(v)
       ? Math.max(minStat, Math.min(maxStat, Math.round(v)))
-      : Math.round(budget / 4);
+      : Math.round(budget / 5);
   }
 
   const sum = STAT_KEYS.reduce((s, k) => s + clamped[k], 0);

@@ -19,7 +19,7 @@ export default function PokedexPage() {
     // Fetch all monsters
     const { data: allMonsters } = await supabase
       .from("monsters")
-      .select("id, name, hp, attack, defense, speed, image_url, backstory, stage, moves");
+      .select("*");
     if (!allMonsters) {
       setLoading(false);
       return;
@@ -53,11 +53,13 @@ export default function PokedexPage() {
           hp: m.hp ?? 0,
           attack: m.attack,
           defense: m.defense ?? 0,
+          sp_attack: m.sp_attack ?? 0,
           speed: m.speed ?? 0,
           image_url: m.image_url,
           backstory: m.backstory ?? "",
           stage: m.stage ?? 1,
           moves: Array.isArray(m.moves) ? m.moves : [],
+          evolution_history: Array.isArray(m.evolution_history) ? m.evolution_history : [],
         };
       })
       .sort((a, b) => b.wins - a.wins || a.losses - b.losses);

@@ -10,6 +10,8 @@ import type { Monster } from "@/lib/types";
 
 type FightPhase = "intro" | "fighting" | "finished";
 
+type TurnPhase = "lunge" | "impact" | "damage" | "effect" | "idle";
+
 interface MatchFightProps {
   monsterA: Monster;
   monsterB: Monster;
@@ -23,6 +25,13 @@ interface MatchFightProps {
   }) => void;
 }
 
+const EFFECT_CAPTIONS: Record<string, string> = {
+  guard: "Defense raised!",
+  rush: "Left exposed!",
+  drain: "Drained energy!",
+  stun: "Stunned!",
+};
+
 export function MatchFight({
   monsterA,
   monsterB,
@@ -35,10 +44,18 @@ export function MatchFight({
   const [rounds, setRounds] = useState<BattleRound[]>([]);
   const [hp1, setHp1] = useState(monsterA.hp);
   const [hp2, setHp2] = useState(monsterB.hp);
-  const [lastHit, setLastHit] = useState<0 | 1 | null>(null);
   const [narration, setNarration] = useState("");
   const [winner, setWinner] = useState<Monster | null>(null);
   const [loser, setLoser] = useState<Monster | null>(null);
+
+  // Animation state
+  const [turnPhase, setTurnPhase] = useState<TurnPhase>("idle");
+  const [activeAttacker, setActiveAttacker] = useState<0 | 1 | null>(null);
+  const [damageNumber, setDamageNumber] = useState<{ value: number; target: 0 | 1 } | null>(null);
+  const [healNumber, setHealNumber] = useState<{ value: number; target: 0 | 1 } | null>(null);
+  const [effectCaption, setEffectCaption] = useState<string | null>(null);
+  const [currentCaption, setCurrentCaption] = useState<string | null>(null);
+  const [screenShake, setScreenShake] = useState(false);
 
   const startBattle = useCallback(() => {
     const result = runBattle(monsterA, monsterB);
@@ -46,7 +63,7 @@ export function MatchFight({
     setPhase("fighting");
   }, [monsterA, monsterB]);
 
-  // Animate rounds
+  // Animate rounds with staggered phases
   useEffect(() => {
     if (phase !== "fighting" || rounds.length === 0) return;
     if (currentRound >= rounds.length) {
@@ -54,19 +71,78 @@ export function MatchFight({
       return;
     }
 
-    const timer = setTimeout(() => {
-      const round = rounds[currentRound];
-      const hitMonster = round.defender === monsterA.name ? 0 : 1;
-      setLastHit(hitMonster);
+    const round = rounds[currentRound];
+    const hitTarget = round.defender === monsterA.name ? 0 : 1;
+    const attackerSide = hitTarget === 0 ? 1 : 0;
 
-      if (hitMonster === 0) setHp1(round.defenderHp);
+    // Build caption
+    if (round.wasStunned) {
+      setCurrentCaption(`${round.attacker} is stunned!`);
+    } else {
+      setCurrentCaption(
+        `${round.attacker} uses ${round.moveName}!`
+      );
+    }
+
+    if (round.wasStunned) {
+      // Stunned turn - just show message and move on
+      const timer = setTimeout(() => {
+        setCurrentCaption(null);
+        setCurrentRound((r) => r + 1);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+
+    // Phase 1: Lunge (200ms)
+    setActiveAttacker(attackerSide as 0 | 1);
+    setTurnPhase("lunge");
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    // Phase 2: Impact (after 200ms, lasts 300ms)
+    timers.push(setTimeout(() => {
+      setTurnPhase("impact");
+      if (round.moveEffect === "rush") setScreenShake(true);
+
+      // Update HP on impact
+      if (hitTarget === 0) setHp1(round.defenderHp);
       else setHp2(round.defenderHp);
+    }, 200));
 
-      setTimeout(() => setLastHit(null), 450);
+    // Phase 3: Damage number (after 350ms, lasts 500ms)
+    timers.push(setTimeout(() => {
+      setScreenShake(false);
+      setTurnPhase("damage");
+      setDamageNumber({ value: round.damage, target: hitTarget as 0 | 1 });
+
+      if (round.healAmount > 0) {
+        setHealNumber({ value: round.healAmount, target: attackerSide as 0 | 1 });
+      }
+    }, 350));
+
+    // Phase 4: Effect caption (after 700ms, lasts 400ms)
+    timers.push(setTimeout(() => {
+      setDamageNumber(null);
+      setHealNumber(null);
+
+      if (round.stunned) {
+        setEffectCaption("Stunned!");
+      } else if (EFFECT_CAPTIONS[round.moveEffect]) {
+        setEffectCaption(EFFECT_CAPTIONS[round.moveEffect]);
+      }
+      setTurnPhase("effect");
+    }, 700));
+
+    // Cleanup & advance (after 1100ms)
+    timers.push(setTimeout(() => {
+      setTurnPhase("idle");
+      setActiveAttacker(null);
+      setEffectCaption(null);
+      setCurrentCaption(null);
       setCurrentRound((r) => r + 1);
-    }, 800);
+    }, 1100));
 
-    return () => clearTimeout(timer);
+    return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentRound, rounds]);
 
@@ -101,8 +177,25 @@ export function MatchFight({
     onComplete({ winner, loser, rounds, narration });
   }
 
+  // Sprite animation variants
+  const getLungeAnimation = (side: 0 | 1) => {
+    if (activeAttacker !== side || turnPhase !== "lunge") return {};
+    // Bottom monster (0) lunges up, top monster (1) lunges down
+    return side === 0 ? { y: -16 } : { y: 16 };
+  };
+
+  const getImpactAnimation = (side: 0 | 1) => {
+    const hitTarget = rounds[currentRound - 1]?.defender === monsterA.name ? 0 : 1;
+    if (side !== hitTarget || turnPhase !== "impact") return {};
+    return { x: [0, -8, 8, -4, 0] };
+  };
+
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-between p-4">
+    <motion.div
+      className="flex min-h-dvh flex-col items-center justify-between p-4"
+      animate={screenShake ? { x: [0, -4, 4, -2, 2, 0] } : {}}
+      transition={{ duration: 0.3 }}
+    >
       {/* Opponent (top) */}
       <div className="w-full">
         <p className="font-retro text-[8px] text-retro-white/40 mb-1">
@@ -112,21 +205,55 @@ export function MatchFight({
           <div className="flex-1">
             <HealthBar current={hp2} max={monsterB.hp} label={monsterB.name} />
           </div>
-          <motion.div
-            className={`relative h-28 w-28 overflow-hidden border-2 border-retro-white ${
-              lastHit === 1 ? "animate-blink" : ""
-            }`}
-            animate={lastHit === 1 ? { x: [0, -8, 8, -4, 0] } : {}}
-            transition={{ duration: 0.3 }}
-          >
-            <Image
-              src={monsterB.image_url}
-              alt={monsterB.name}
-              fill
-              className="object-contain"
-              unoptimized
-            />
-          </motion.div>
+          <div className="relative">
+            <motion.div
+              className={`relative h-28 w-28 overflow-hidden border-2 border-retro-white ${
+                turnPhase === "impact" && rounds[currentRound]?.defender === monsterB.name
+                  ? "animate-blink"
+                  : ""
+              }`}
+              animate={{
+                ...getLungeAnimation(1),
+                ...getImpactAnimation(1),
+              }}
+              transition={{ duration: turnPhase === "lunge" ? 0.2 : 0.3 }}
+            >
+              <Image
+                src={monsterB.image_url}
+                alt={monsterB.name}
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </motion.div>
+            {/* Floating damage number */}
+            <AnimatePresence>
+              {damageNumber && damageNumber.target === 1 && (
+                <motion.div
+                  key="dmg-top"
+                  initial={{ opacity: 1, y: 0 }}
+                  animate={{ opacity: 0, y: -32 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 font-retro text-sm text-retro-accent font-bold pointer-events-none"
+                >
+                  -{damageNumber.value}
+                </motion.div>
+              )}
+              {healNumber && healNumber.target === 1 && (
+                <motion.div
+                  key="heal-top"
+                  initial={{ opacity: 1, y: 0 }}
+                  animate={{ opacity: 0, y: -32 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute -top-2 right-0 font-retro text-sm text-retro-green font-bold pointer-events-none"
+                >
+                  +{healNumber.value}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -153,20 +280,35 @@ export function MatchFight({
               key="fighting"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="pixel-border bg-retro-dark p-3"
+              className="pixel-border bg-retro-dark p-3 min-h-[48px]"
             >
-              {currentRound > 0 && currentRound <= rounds.length && (
-                <p className="font-retro text-[8px] text-retro-white leading-relaxed">
-                  {rounds[currentRound - 1].attacker} uses{" "}
-                  <span className="text-retro-gold">
-                    {rounds[currentRound - 1].moveName}
-                  </span>
-                  !{" "}
-                  <span className="text-retro-accent">
-                    {rounds[currentRound - 1].damage}
-                  </span>{" "}
-                  damage to {rounds[currentRound - 1].defender}!
-                </p>
+              {currentCaption && (
+                <motion.p
+                  key={`caption-${currentRound}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="font-retro text-[8px] text-retro-white leading-relaxed"
+                >
+                  {currentCaption}
+                  {damageNumber && !rounds[currentRound]?.wasStunned && (
+                    <>
+                      {" "}
+                      <span className="text-retro-accent">
+                        {damageNumber.value}
+                      </span>{" "}
+                      damage!
+                    </>
+                  )}
+                </motion.p>
+              )}
+              {effectCaption && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="font-retro text-[8px] text-retro-gold mt-1"
+                >
+                  {effectCaption}
+                </motion.p>
               )}
             </motion.div>
           )}
@@ -201,21 +343,55 @@ export function MatchFight({
       {/* Player monster (bottom) */}
       <div className="w-full">
         <div className="flex w-full items-end justify-between gap-2">
-          <motion.div
-            className={`relative h-28 w-28 overflow-hidden border-2 border-retro-white ${
-              lastHit === 0 ? "animate-blink" : ""
-            }`}
-            animate={lastHit === 0 ? { x: [0, 8, -8, 4, 0] } : {}}
-            transition={{ duration: 0.3 }}
-          >
-            <Image
-              src={monsterA.image_url}
-              alt={monsterA.name}
-              fill
-              className="object-contain"
-              unoptimized
-            />
-          </motion.div>
+          <div className="relative">
+            <motion.div
+              className={`relative h-28 w-28 overflow-hidden border-2 border-retro-white ${
+                turnPhase === "impact" && rounds[currentRound]?.defender === monsterA.name
+                  ? "animate-blink"
+                  : ""
+              }`}
+              animate={{
+                ...getLungeAnimation(0),
+                ...getImpactAnimation(0),
+              }}
+              transition={{ duration: turnPhase === "lunge" ? 0.2 : 0.3 }}
+            >
+              <Image
+                src={monsterA.image_url}
+                alt={monsterA.name}
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </motion.div>
+            {/* Floating damage number */}
+            <AnimatePresence>
+              {damageNumber && damageNumber.target === 0 && (
+                <motion.div
+                  key="dmg-bottom"
+                  initial={{ opacity: 1, y: 0 }}
+                  animate={{ opacity: 0, y: -32 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 font-retro text-sm text-retro-accent font-bold pointer-events-none"
+                >
+                  -{damageNumber.value}
+                </motion.div>
+              )}
+              {healNumber && healNumber.target === 0 && (
+                <motion.div
+                  key="heal-bottom"
+                  initial={{ opacity: 1, y: 0 }}
+                  animate={{ opacity: 0, y: -32 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="absolute -top-2 right-0 font-retro text-sm text-retro-green font-bold pointer-events-none"
+                >
+                  +{healNumber.value}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <div className="flex-1">
             <HealthBar current={hp1} max={monsterA.hp} label={monsterA.name} />
           </div>
@@ -224,6 +400,6 @@ export function MatchFight({
           {playerAName}
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 }

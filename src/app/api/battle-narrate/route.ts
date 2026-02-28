@@ -12,6 +12,16 @@ export async function POST(req: Request) {
       loserName: string;
     };
 
+    const keyMoments = rounds.slice(0, 8).map((r) => {
+      if (r.wasStunned) return `${r.attacker} is stunned and can't move!`;
+      let line = `${r.attacker} uses ${r.moveName || "an attack"} (${r.moveCategory || "physical"} ${r.moveEffect || "strike"}) on ${r.defender} for ${r.damage} damage`;
+      if (r.healAmount > 0) line += `, draining ${r.healAmount} HP`;
+      if (r.stunned) line += ` — ${r.defender} is stunned!`;
+      if (r.moveEffect === "guard") line += ` and raises defense`;
+      if (r.moveEffect === "rush") line += ` but is left exposed`;
+      return line;
+    });
+
     const prompt = `You are a dramatic 16-bit RPG battle narrator. Write a short, exciting battle narration (4-6 sentences) for this monster fight.
 
 Winner: ${winnerName}
@@ -19,12 +29,9 @@ Loser: ${loserName}
 Total rounds: ${rounds.length}
 
 Key moments:
-${rounds
-  .slice(0, 6)
-  .map((r) => `${r.attacker} uses ${r.moveName || "an attack"} (${r.moveEffect || "strike"}) on ${r.defender} for ${r.damage} damage`)
-  .join("\n")}
+${keyMoments.join("\n")}
 
-Write in the style of a classic SNES RPG. Be dramatic but concise. Use present tense. No emojis.`;
+Write in the style of a classic SNES RPG. Be dramatic but concise. Use present tense. Reference specific moves, tactical moments (guards, exposures, drains, stuns), and momentum shifts. No emojis.`;
 
     const result = await openai.chat.completions.create({
       model: "gpt-4.1-mini",

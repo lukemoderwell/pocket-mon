@@ -7,6 +7,7 @@ create table if not exists monsters (
   hp integer not null,
   attack integer not null,
   defense integer not null,
+  sp_attack integer not null default 50,
   speed integer not null,
   image_url text not null,
   created_at timestamptz default now()

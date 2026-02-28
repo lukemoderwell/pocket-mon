@@ -1,10 +1,12 @@
-import type { Move, MoveEffect } from "./types";
+import type { Move, MoveEffect, MoveCategory } from "./types";
 
 /** Power and cooldown rules per effect type */
 const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; cooldown: number }> = {
   strike: { minPower: 0.8, maxPower: 1.2, cooldown: 0 },
   guard:  { minPower: 0.4, maxPower: 0.7, cooldown: 1 },
   rush:   { minPower: 1.5, maxPower: 2.0, cooldown: 2 },
+  drain:  { minPower: 0.7, maxPower: 1.0, cooldown: 1 },
+  stun:   { minPower: 0.5, maxPower: 0.8, cooldown: 2 },
 };
 
 /** Higher stages get a small power ceiling boost */
@@ -14,7 +16,8 @@ const STAGE_BONUS: Record<number, number> = {
   3: 0.2,
 };
 
-const VALID_EFFECTS: MoveEffect[] = ["strike", "guard", "rush"];
+const VALID_EFFECTS: MoveEffect[] = ["strike", "guard", "rush", "drain", "stun"];
+const VALID_CATEGORIES: MoveCategory[] = ["physical", "special"];
 
 /**
  * Validate and normalize an AI-generated move.
@@ -25,6 +28,10 @@ export function normalizeMove(raw: Partial<Move>, stage: number): Move {
   const effect: MoveEffect = VALID_EFFECTS.includes(raw.effect as MoveEffect)
     ? (raw.effect as MoveEffect)
     : "strike";
+
+  const category: MoveCategory = VALID_CATEGORIES.includes(raw.category as MoveCategory)
+    ? (raw.category as MoveCategory)
+    : "physical";
 
   const rules = EFFECT_RULES[effect];
   const bonus = STAGE_BONUS[stage] ?? 0;
@@ -38,7 +45,7 @@ export function normalizeMove(raw: Partial<Move>, stage: number): Move {
     ? raw.name.trim().slice(0, 30)
     : `${effect.charAt(0).toUpperCase() + effect.slice(1)} Move`;
 
-  return { name, effect, power, cooldown: rules.cooldown };
+  return { name, effect, category, power, cooldown: rules.cooldown };
 }
 
 /**
@@ -54,7 +61,7 @@ export function normalizeMoves(rawMoves: unknown, stage: number): Move[] {
 
   // Pad to 2 if only 1 was provided
   if (moves.length < 2) {
-    moves.push(normalizeMove({ name: "Wild Charge", effect: "rush" }, stage));
+    moves.push(normalizeMove({ name: "Wild Charge", effect: "rush", category: "physical" }, stage));
   }
 
   return moves;
@@ -66,7 +73,7 @@ export function normalizeMoves(rawMoves: unknown, stage: number): Move[] {
 export function getDefaultMoves(stage = 1): Move[] {
   const bonus = STAGE_BONUS[stage] ?? 0;
   return [
-    { name: "Basic Strike", effect: "strike", power: Math.round((1.0 + bonus) * 100) / 100, cooldown: 0 },
-    { name: "Wild Charge", effect: "rush", power: Math.round((1.7 + bonus) * 100) / 100, cooldown: 2 },
+    { name: "Basic Strike", effect: "strike", category: "physical", power: Math.round((1.0 + bonus) * 100) / 100, cooldown: 0 },
+    { name: "Wild Charge", effect: "rush", category: "physical", power: Math.round((1.7 + bonus) * 100) / 100, cooldown: 2 },
   ];
 }

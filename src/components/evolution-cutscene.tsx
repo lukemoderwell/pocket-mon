@@ -177,6 +177,7 @@ export function EvolutionCutscene({
               <StatDelta label="HP" before={monster.hp} after={evolved.hp} />
               <StatDelta label="ATK" before={monster.attack} after={evolved.attack} />
               <StatDelta label="DEF" before={monster.defense} after={evolved.defense} />
+              <StatDelta label="SP.ATK" before={monster.sp_attack} after={evolved.sp_attack} />
               <StatDelta label="SPD" before={monster.speed} after={evolved.speed} />
             </div>
 

@@ -1,10 +1,25 @@
-export type MoveEffect = "strike" | "guard" | "rush";
+export type MoveEffect = "strike" | "guard" | "rush" | "drain" | "stun";
+export type MoveCategory = "physical" | "special";
 
 export interface Move {
   name: string;
   effect: MoveEffect;
+  category: MoveCategory;
   power: number;
   cooldown: number;
+}
+
+export interface StageSnapshot {
+  stage: number;
+  hp: number;
+  attack: number;
+  defense: number;
+  sp_attack: number;
+  speed: number;
+  image_url: string;
+  backstory: string;
+  appearance: string;
+  moves: Move[];
 }
 
 export interface Monster {
@@ -13,12 +28,14 @@ export interface Monster {
   hp: number;
   attack: number;
   defense: number;
+  sp_attack: number;
   speed: number;
   image_url: string;
   backstory: string;
   appearance: string;
   moves: Move[];
   stage: number;
+  evolution_history: StageSnapshot[];
   evo_threshold_2: number | null;
   evo_threshold_3: number | null;
   created_at: string;
@@ -43,11 +60,13 @@ export interface LeaderboardEntry {
   attack: number;
   hp: number;
   defense: number;
+  sp_attack: number;
   speed: number;
   image_url: string;
   backstory: string;
   stage: number;
   moves: Move[];
+  evolution_history?: StageSnapshot[];
 }
 
 export interface EvolutionResult {

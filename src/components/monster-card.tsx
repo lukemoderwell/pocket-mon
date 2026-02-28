@@ -33,6 +33,7 @@ export function MonsterCard({ monster, highlight, compact }: MonsterCardProps) {
           <StatRow label="HP" value={monster.hp} color="text-retro-green" />
           <StatRow label="ATK" value={monster.attack} color="text-retro-accent" />
           <StatRow label="DEF" value={monster.defense} color="text-retro-blue" />
+          <StatRow label="SP.ATK" value={monster.sp_attack} color="text-purple-400" />
           <StatRow label="SPD" value={monster.speed} color="text-retro-gold" />
         </div>
         {!compact && monster.moves && monster.moves.length > 0 && (
@@ -94,6 +95,8 @@ const EFFECT_COLORS: Record<MoveEffect, string> = {
   strike: "text-retro-white bg-retro-white/10",
   guard: "text-retro-blue bg-retro-blue/10",
   rush: "text-retro-accent bg-retro-accent/10",
+  drain: "text-retro-green bg-retro-green/10",
+  stun: "text-yellow-400 bg-yellow-400/10",
 };
 
 function MoveEffectBadge({ effect }: { effect: MoveEffect }) {

@@ -8,8 +8,8 @@ import type { Move } from "@/lib/types";
 const openai = new OpenAI();
 
 const STAGE_CONFIG = {
-  2: { budget: 350, maxStat: 120 },
-  3: { budget: 420, maxStat: 140 },
+  2: { budget: 430, maxStat: 120 },
+  3: { budget: 520, maxStat: 140 },
 } as const;
 
 const STAGE_DESCRIPTORS: Record<number, string> = {
@@ -18,22 +18,26 @@ const STAGE_DESCRIPTORS: Record<number, string> = {
 };
 
 const EVO_IMAGE_PROMPT = (name: string, stage: number, appearance: string) =>
-  `A 16-bit SNES-style pixel art monster named "${name}". ${appearance || STAGE_DESCRIPTORS[stage]} Front-facing full body on a solid blue (#4a90d9) background. 16-color palette, bold outlines. No text or UI elements.`;
+  `A 16-bit SNES-style pixel art monster named "${name}". ${appearance || STAGE_DESCRIPTORS[stage]} Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
 
 const EVO_STATS_PROMPT = (name: string, stage: number, budget: number, currentMoves: Move[]) =>
-  `You are a game designer. Generate evolved battle stats, an updated visual appearance, backstory, and two upgraded battle moves for a stage ${stage} monster named "${name}".
-${currentMoves.length > 0 ? `Current moves: ${currentMoves.map(m => `${m.name} (${m.effect})`).join(", ")}. Evolve these into stronger thematic versions.` : ""}
+  `You are a creature designer. Generate evolved stats, appearance, Pokedex entry, and two upgraded battle moves for a stage ${stage} monster named "${name}".
+${currentMoves.length > 0 ? `Current moves: ${currentMoves.map(m => `${m.name} (${m.effect}, ${(m as Move & { category?: string }).category || "physical"})`).join(", ")}. Evolve these into stronger thematic versions, keeping their categories.` : ""}
 Return ONLY a JSON object with these fields:
 {
-  "hp": number, "attack": number, "defense": number, "speed": number,
+  "hp": number, "attack": number, "defense": number, "sp_attack": number, "speed": number,
   "backstory": string,
   "appearance": string,
-  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" }, { "name": string, "effect": "strike" | "guard" | "rush" }]
+  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special" }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special" }]
 }
-Stats should be integers 30-${stage === 2 ? 120 : 140} and feel thematic for an evolved monster. Distribute exactly ${budget} points across hp/attack/defense/speed.
-The backstory should be 1-2 sentences describing the monster's evolution, written in a fun retro RPG style.
-The appearance should be a vivid 1-2 sentence visual description showing how the creature has grown more powerful — larger, fiercer, more dramatic features than its previous form.
-Moves should be upgraded versions of the previous moves with more powerful, dramatic names.`;
+
+STATS: Integers 30-${stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
+
+BACKSTORY: Write a Pokedex-style field observation about the evolved form — 1-2 sentences about new abilities, changed behavior, or ecological role. NOT an origin story. Think nature documentary.
+
+APPEARANCE: A vivid 1-2 sentence visual description showing how the creature has grown — larger, more dramatic features, evolved distinctive trait. Clear silhouette, expressive.
+
+MOVES: Upgraded versions with more powerful names. Effects: "strike" (reliable), "guard" (defensive), "rush" (heavy but risky), "drain" (heals on hit), "stun" (chance to skip turn). Category: "physical" or "special".`;
 
 export async function POST(req: Request) {
   try {
@@ -91,9 +95,9 @@ export async function POST(req: Request) {
     const raw = JSON.parse(
       statsResult.choices[0].message.content ?? "{}"
     ) as {
-      hp: number; attack: number; defense: number; speed: number;
+      hp: number; attack: number; defense: number; sp_attack: number; speed: number;
       backstory: string; appearance: string;
-      moves: { name: string; effect: string }[];
+      moves: { name: string; effect: string; category: string }[];
     };
     const stats = normalizeStats(raw, config.budget, config.maxStat);
     const backstory = typeof raw.backstory === "string" ? raw.backstory : monster.backstory;
@@ -104,9 +108,9 @@ export async function POST(req: Request) {
       monsterName: monster.name,
       fromStage,
       toStage,
-      rawFromGPT: { hp: raw.hp, attack: raw.attack, defense: raw.defense, speed: raw.speed },
+      rawFromGPT: { hp: raw.hp, attack: raw.attack, defense: raw.defense, sp_attack: raw.sp_attack, speed: raw.speed },
       normalized: stats,
-      existing: { hp: monster.hp, attack: monster.attack, defense: monster.defense, speed: monster.speed },
+      existing: { hp: monster.hp, attack: monster.attack, defense: monster.defense, sp_attack: monster.sp_attack, speed: monster.speed },
     });
 
     // Step 2: Generate image using the evolved appearance
@@ -149,23 +153,53 @@ export async function POST(req: Request) {
       data: { publicUrl },
     } = supabase.storage.from("monsters").getPublicUrl(fileName);
 
-    // Update monster in place
-    const { data: evolved, error: updateError } = await supabase
+    // Save current stage as a snapshot in evolution_history
+    const existingHistory: unknown[] = Array.isArray(monster.evolution_history) ? monster.evolution_history : [];
+    const snapshot = {
+      stage: fromStage,
+      hp: monster.hp,
+      attack: monster.attack,
+      defense: monster.defense,
+      sp_attack: monster.sp_attack ?? 50,
+      speed: monster.speed,
+      image_url: monster.image_url,
+      backstory: monster.backstory,
+      appearance: monster.appearance ?? "",
+      moves: Array.isArray(monster.moves) ? monster.moves : [],
+    };
+
+    // Build update payload - only include evolution_history if column exists
+    const updatePayload: Record<string, unknown> = {
+      hp: stats.hp,
+      attack: stats.attack,
+      defense: stats.defense,
+      sp_attack: stats.sp_attack,
+      speed: stats.speed,
+      image_url: publicUrl,
+      backstory,
+      appearance,
+      moves,
+      stage: toStage,
+    };
+
+    // Try with evolution_history first, fall back without it
+    let evolved, updateError;
+    ({ data: evolved, error: updateError } = await supabase
       .from("monsters")
-      .update({
-        hp: stats.hp,
-        attack: stats.attack,
-        defense: stats.defense,
-        speed: stats.speed,
-        image_url: publicUrl,
-        backstory,
-        appearance,
-        moves,
-        stage: toStage,
-      })
+      .update({ ...updatePayload, evolution_history: [...existingHistory, snapshot] })
       .eq("id", monster_id)
       .select()
-      .single();
+      .single());
+
+    if (updateError?.code === "PGRST204") {
+      // Column doesn't exist yet - update without it
+      ({ data: evolved, error: updateError } = await supabase
+        .from("monsters")
+        .update(updatePayload)
+        .eq("id", monster_id)
+        .select()
+        .single());
+    }
 
     if (updateError || !evolved) {
       console.error("Update error:", updateError);
