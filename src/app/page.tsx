@@ -146,6 +146,20 @@ export default function Home() {
         </RetroButton>
       </motion.div>
 
+      {/* Quick Battle */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+      >
+        <Link
+          href="/quick-battle"
+          className="font-retro text-[9px] text-retro-white/40 hover:text-retro-white/70 transition-colors border-b border-retro-white/20 hover:border-retro-white/50 pb-0.5"
+        >
+          Quick Battle — use existing monsters
+        </Link>
+      </motion.div>
+
       {/* Leaderboard */}
       {leaderboard.length > 0 && (
         <motion.div

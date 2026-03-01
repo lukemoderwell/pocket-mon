@@ -31,8 +31,8 @@ Examples of the tone:
 
 APPEARANCE: A vivid 1-2 sentence visual description for a pixel artist. Focus on: one distinctive body feature, specific colors, personality expressed through posture/expression. Aim for a design that reads clearly as a small silhouette.
 
-MOVES: Each move has a name (creative, thematic), an effect type, and a category.
-Effects: "strike" (reliable damage), "guard" (defensive, reduces incoming damage), "rush" (heavy hitter but leaves user exposed), "drain" (heals attacker for portion of damage), "stun" (chance to skip opponent's turn).
+MOVES: Each move has a name (creative, thematic), an effect type, and a category. Give the monster two DIFFERENT effect types — variety makes battles more interesting.
+Effects: "strike" (reliable damage), "guard" (defensive, reduces incoming damage), "rush" (heavy hitter but leaves user exposed), "drain" (vampiric — deals damage AND heals the attacker, great for sustain fighters), "stun" (chance to skip opponent's turn).
 Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.`;
 
 export async function POST(req: Request) {
