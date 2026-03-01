@@ -1,109 +1,42 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { motion } from "motion/react";
-import { supabase } from "@/lib/supabase";
-import { RetroCard } from "@/components/retro-card";
-import { RetroButton } from "@/components/retro-button";
-import { BottomSheet } from "@/components/bottom-sheet";
-import { MonsterDetail } from "@/components/monster-detail";
-import { MatchFight } from "@/components/match-fight";
-import type { LeaderboardEntry, Monster, SortMode } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { motion } from 'motion/react';
+import { supabase } from '@/lib/supabase';
+import { fetchMonstersWithStats, toMonster } from '@/lib/fetch-monsters';
+import { RetroCard } from '@/components/retro-card';
+import { RetroButton } from '@/components/retro-button';
+import { MonsterDetailSheet } from '@/components/monster-detail-sheet';
+import { MatchFight } from '@/components/match-fight';
+import { EvolutionCutscene } from '@/components/evolution-cutscene';
+import type { LeaderboardEntry, Monster, SortMode } from '@/lib/types';
 
 const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
-  { mode: "wins", label: "Wins" },
-  { mode: "alpha", label: "A–Z" },
-  { mode: "newest", label: "New" },
+  { mode: 'wins', label: 'Wins' },
+  { mode: 'alpha', label: 'A–Z' },
+  { mode: 'newest', label: 'New' },
 ];
 
-/** Convert a LeaderboardEntry to a Monster for the battle engine */
-function toMonster(entry: LeaderboardEntry): Monster {
-  return {
-    id: entry.id,
-    name: entry.monster_name,
-    hp: entry.hp,
-    attack: entry.attack,
-    defense: entry.defense,
-    sp_attack: entry.sp_attack,
-    speed: entry.speed,
-    image_url: entry.image_url,
-    backstory: entry.backstory,
-    appearance: "",
-    moves: entry.moves,
-    stage: entry.stage,
-    evolution_history: entry.evolution_history ?? [],
-    evo_threshold_2: null,
-    evo_threshold_3: null,
-    created_at: entry.created_at,
-  };
-}
-
-type PageMode = "list" | "fighting" | "result";
+type PageMode = 'list' | 'fighting' | 'evolving' | 'result';
 
 export default function PokedexPage() {
   const [monsters, setMonsters] = useState<LeaderboardEntry[]>([]);
-  const [selectedMonster, setSelectedMonster] = useState<LeaderboardEntry | null>(null);
+  const [selectedMonster, setSelectedMonster] =
+    useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sortMode, setSortMode] = useState<SortMode>("wins");
+  const [sortMode, setSortMode] = useState<SortMode>('wins');
 
   // Quick battle state
-  const [mode, setMode] = useState<PageMode>("list");
+  const [mode, setMode] = useState<PageMode>('list');
   const [battleMonster, setBattleMonster] = useState<Monster | null>(null);
   const [opponentMonster, setOpponentMonster] = useState<Monster | null>(null);
   const [lastWinner, setLastWinner] = useState<string | null>(null);
+  const [evolvingMonster, setEvolvingMonster] = useState<Monster | null>(null);
 
   const fetchAll = useCallback(async () => {
-    // Fetch all monsters
-    const { data: allMonsters } = await supabase
-      .from("monsters")
-      .select("*");
-    if (!allMonsters) {
-      setLoading(false);
-      return;
-    }
-
-    // Fetch all battles for W/L stats
-    const { data: battles } = await supabase
-      .from("battles")
-      .select("winner_id, loser_id");
-
-    const stats = new Map<string, { wins: number; losses: number }>();
-    if (battles) {
-      for (const b of battles) {
-        const w = stats.get(b.winner_id) ?? { wins: 0, losses: 0 };
-        w.wins++;
-        stats.set(b.winner_id, w);
-
-        const l = stats.get(b.loser_id) ?? { wins: 0, losses: 0 };
-        l.losses++;
-        stats.set(b.loser_id, l);
-      }
-    }
-
-    const entries: LeaderboardEntry[] = allMonsters
-      .map((m) => {
-        const s = stats.get(m.id) ?? { wins: 0, losses: 0 };
-        return {
-          id: m.id,
-          monster_name: m.name,
-          wins: s.wins,
-          losses: s.losses,
-          hp: m.hp ?? 0,
-          attack: m.attack,
-          defense: m.defense ?? 0,
-          sp_attack: m.sp_attack ?? 0,
-          speed: m.speed ?? 0,
-          image_url: m.image_url,
-          backstory: m.backstory ?? "",
-          stage: m.stage ?? 1,
-          moves: Array.isArray(m.moves) ? m.moves : [],
-          evolution_history: Array.isArray(m.evolution_history) ? m.evolution_history : [],
-          created_at: m.created_at ?? "",
-        };
-      });
-
+    const entries = await fetchMonstersWithStats();
     setMonsters(entries);
     setLoading(false);
   }, []);
@@ -111,24 +44,31 @@ export default function PokedexPage() {
   // Fetch on mount + re-fetch when page regains focus
   useEffect(() => {
     function handleVisibility() {
-      if (document.visibilityState === "visible") fetchAll();
+      if (document.visibilityState === 'visible') fetchAll();
     }
     handleVisibility();
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibility);
   }, [fetchAll]);
 
   const sortedMonsters = useMemo(() => {
     const sorted = [...monsters];
     switch (sortMode) {
-      case "alpha":
+      case 'alpha':
         sorted.sort((a, b) => a.monster_name.localeCompare(b.monster_name));
         break;
-      case "wins":
+      case 'wins':
         sorted.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
         break;
-      case "newest":
-        sorted.sort((a, b) => (b.created_at > a.created_at ? 1 : b.created_at < a.created_at ? -1 : 0));
+      case 'newest':
+        sorted.sort((a, b) =>
+          b.created_at > a.created_at
+            ? 1
+            : b.created_at < a.created_at
+              ? -1
+              : 0,
+        );
         break;
     }
     return sorted;
@@ -142,7 +82,33 @@ export default function PokedexPage() {
     setBattleMonster(toMonster(selectedMonster));
     setOpponentMonster(toMonster(opponent));
     setSelectedMonster(null);
-    setMode("fighting");
+    setMode('fighting');
+  }
+
+  async function checkEvolutionEligibility(monster: Monster): Promise<boolean> {
+    if (monster.stage >= 3) return false;
+
+    const { data: fresh } = await supabase
+      .from('monsters')
+      .select('stage, evo_threshold_2, evo_threshold_3')
+      .eq('id', monster.id)
+      .single();
+
+    if (!fresh) return false;
+
+    const stage = fresh.stage ?? monster.stage;
+    if (stage >= 3) return false;
+
+    const threshold =
+      stage === 1 ? fresh.evo_threshold_2 : fresh.evo_threshold_3;
+    if (threshold == null) return false;
+
+    const { count } = await supabase
+      .from('battles')
+      .select('*', { count: 'exact', head: true })
+      .eq('winner_id', monster.id);
+
+    return (count ?? 0) >= threshold;
   }
 
   async function handleFightComplete(result: {
@@ -150,19 +116,32 @@ export default function PokedexPage() {
     loser: Monster;
   }) {
     setLastWinner(result.winner.name);
-    setMode("result");
 
     try {
       await supabase
-        .from("battles")
+        .from('battles')
         .insert({ winner_id: result.winner.id, loser_id: result.loser.id });
     } catch {
       // Non-critical
     }
+
+    // Check evolution eligibility for the winner
+    const eligible = await checkEvolutionEligibility(result.winner);
+    if (eligible) {
+      setEvolvingMonster(result.winner);
+      setMode('evolving');
+    } else {
+      setMode('result');
+    }
+  }
+
+  function handleEvolutionComplete() {
+    setEvolvingMonster(null);
+    setMode('result');
   }
 
   function handleBackToList() {
-    setMode("list");
+    setMode('list');
     setBattleMonster(null);
     setOpponentMonster(null);
     setLastWinner(null);
@@ -170,7 +149,7 @@ export default function PokedexPage() {
   }
 
   // ─── Fighting mode ──────────────────────────────────────────────
-  if (mode === "fighting" && battleMonster && opponentMonster) {
+  if (mode === 'fighting' && battleMonster && opponentMonster) {
     return (
       <MatchFight
         monsterA={battleMonster}
@@ -182,8 +161,19 @@ export default function PokedexPage() {
     );
   }
 
+  // ─── Evolving mode ─────────────────────────────────────────────
+  if (mode === 'evolving' && evolvingMonster) {
+    return (
+      <EvolutionCutscene
+        monster={evolvingMonster}
+        playerIndex={0}
+        onComplete={handleEvolutionComplete}
+      />
+    );
+  }
+
   // ─── Result mode ────────────────────────────────────────────────
-  if (mode === "result") {
+  if (mode === 'result') {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
         <motion.p
@@ -217,15 +207,17 @@ export default function PokedexPage() {
 
       {/* Sort controls */}
       <div className="w-full max-w-sm flex items-center gap-2">
-        <span className="font-retro text-[7px] text-retro-white/30 shrink-0">Sort</span>
+        <span className="font-retro text-[7px] text-retro-white/30 shrink-0">
+          Sort
+        </span>
         {SORT_OPTIONS.map((opt) => (
           <button
             key={opt.mode}
             onClick={() => setSortMode(opt.mode)}
             className={`font-retro text-[7px] px-2 py-1 rounded transition-colors ${
               sortMode === opt.mode
-                ? "bg-retro-gold text-retro-black"
-                : "bg-retro-white/5 text-retro-white/40 hover:bg-retro-white/10"
+                ? 'bg-retro-gold text-retro-black'
+                : 'bg-retro-white/5 text-retro-white/40 hover:bg-retro-white/10'
             }`}
           >
             {opt.label}
@@ -278,7 +270,9 @@ export default function PokedexPage() {
                         <span
                           key={s}
                           className={`text-[6px] ${
-                            s <= entry.stage ? "text-retro-gold" : "text-retro-white/20"
+                            s <= entry.stage
+                              ? 'text-retro-gold'
+                              : 'text-retro-white/20'
                           }`}
                         >
                           ◆
@@ -302,26 +296,11 @@ export default function PokedexPage() {
       </div>
 
       {/* Monster Detail Sheet */}
-      <BottomSheet
-        open={selectedMonster !== null}
+      <MonsterDetailSheet
+        entry={selectedMonster}
         onClose={() => setSelectedMonster(null)}
-      >
-        {selectedMonster && (
-          <>
-            <MonsterDetail entry={selectedMonster} />
-            {monsters.length >= 2 && (
-              <div className="flex justify-center mt-4">
-                <RetroButton
-                  onClick={startQuickBattle}
-                  className="text-[9px] px-6 py-2"
-                >
-                  Quick Battle
-                </RetroButton>
-              </div>
-            )}
-          </>
-        )}
-      </BottomSheet>
+        onQuickBattle={monsters.length >= 2 ? startQuickBattle : undefined}
+      />
     </div>
   );
 }

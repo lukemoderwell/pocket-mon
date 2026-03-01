@@ -1,100 +1,180 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import { motion } from "motion/react";
-import { useGameStore } from "@/lib/store";
-import { RetroButton } from "@/components/retro-button";
-import { RetroCard } from "@/components/retro-card";
-import { BottomSheet } from "@/components/bottom-sheet";
-import { MonsterDetail } from "@/components/monster-detail";
-import { supabase } from "@/lib/supabase";
-import type { LeaderboardEntry } from "@/lib/types";
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Image from 'next/image';
+import { motion } from 'motion/react';
+import { useGameStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
+import { RetroButton } from '@/components/retro-button';
+import { RetroCard } from '@/components/retro-card';
+import { MonsterDetailSheet } from '@/components/monster-detail-sheet';
+import { MatchFight } from '@/components/match-fight';
+import { EvolutionCutscene } from '@/components/evolution-cutscene';
+import { fetchMonstersWithStats, toMonster } from '@/lib/fetch-monsters';
+import type { LeaderboardEntry, Monster } from '@/lib/types';
 
 const PLAYER_OPTIONS = [2, 3, 4, 5, 6, 7, 8];
+
+type PageMode = 'lobby' | 'fighting' | 'evolving' | 'result';
 
 export default function Home() {
   const router = useRouter();
   const { setPhase, reset, playerCount, setPlayerCount, initPlayers } =
     useGameStore();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [selectedMonster, setSelectedMonster] = useState<LeaderboardEntry | null>(null);
+  const [selectedMonster, setSelectedMonster] =
+    useState<LeaderboardEntry | null>(null);
+
+  // Quick battle state
+  const [mode, setMode] = useState<PageMode>('lobby');
+  const [battleMonster, setBattleMonster] = useState<Monster | null>(null);
+  const [opponentMonster, setOpponentMonster] = useState<Monster | null>(null);
+  const [lastWinner, setLastWinner] = useState<string | null>(null);
+  const [evolvingMonster, setEvolvingMonster] = useState<Monster | null>(null);
 
   const fetchLeaderboard = useCallback(async () => {
-    // Fetch battles and compute stats client-side (avoids relying on a DB view)
-    const { data: battles } = await supabase
-      .from("battles")
-      .select("winner_id, loser_id");
-    if (!battles || battles.length === 0) return;
-
-    // Tally wins and losses per monster id
-    const stats = new Map<string, { wins: number; losses: number }>();
-    for (const b of battles) {
-      const w = stats.get(b.winner_id) ?? { wins: 0, losses: 0 };
-      w.wins++;
-      stats.set(b.winner_id, w);
-
-      const l = stats.get(b.loser_id) ?? { wins: 0, losses: 0 };
-      l.losses++;
-      stats.set(b.loser_id, l);
-    }
-
-    // Fetch monster details for the monsters that have battle records
-    const monsterIds = [...stats.keys()];
-    const { data: monsters } = await supabase
-      .from("monsters")
-      .select("*")
-      .in("id", monsterIds);
-    if (!monsters) return;
-
-    // Merge and sort by wins desc, then by win rate
-    const entries: LeaderboardEntry[] = monsters
-      .map((m) => {
-        const s = stats.get(m.id) ?? { wins: 0, losses: 0 };
-        return {
-          id: m.id,
-          monster_name: m.name,
-          wins: s.wins,
-          losses: s.losses,
-          hp: m.hp ?? 0,
-          attack: m.attack,
-          defense: m.defense ?? 0,
-          sp_attack: m.sp_attack ?? 0,
-          speed: m.speed ?? 0,
-          image_url: m.image_url,
-          backstory: m.backstory ?? "",
-          stage: m.stage ?? 1,
-          moves: Array.isArray(m.moves) ? m.moves : [],
-          evolution_history: Array.isArray(m.evolution_history) ? m.evolution_history : [],
-          created_at: m.created_at ?? "",
-        };
-      })
-      .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
-      .slice(0, 5);
-
+    const entries = await fetchMonstersWithStats({
+      onlyWithBattles: true,
+      limit: 5,
+    });
     setLeaderboard(entries);
   }, []);
 
   // Fetch on mount + re-fetch when page regains focus (e.g. returning from battle)
   useEffect(() => {
     function handleVisibility() {
-      if (document.visibilityState === "visible") fetchLeaderboard();
+      if (document.visibilityState === 'visible') fetchLeaderboard();
     }
     handleVisibility();
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibility);
   }, [fetchLeaderboard]);
 
   function handleStart() {
     reset();
     setPlayerCount(playerCount);
     initPlayers();
-    setPhase("create");
-    router.push("/create");
+    setPhase('create');
+    router.push('/create');
   }
 
+  function startQuickBattle() {
+    if (!selectedMonster) return;
+    const others = leaderboard.filter((m) => m.id !== selectedMonster.id);
+    if (others.length === 0) return;
+    const opponent = others[Math.floor(Math.random() * others.length)];
+    setBattleMonster(toMonster(selectedMonster));
+    setOpponentMonster(toMonster(opponent));
+    setSelectedMonster(null);
+    setMode('fighting');
+  }
+
+  async function checkEvolutionEligibility(monster: Monster): Promise<boolean> {
+    if (monster.stage >= 3) return false;
+
+    const { data: fresh } = await supabase
+      .from('monsters')
+      .select('stage, evo_threshold_2, evo_threshold_3')
+      .eq('id', monster.id)
+      .single();
+
+    if (!fresh) return false;
+
+    const stage = fresh.stage ?? monster.stage;
+    if (stage >= 3) return false;
+
+    const threshold =
+      stage === 1 ? fresh.evo_threshold_2 : fresh.evo_threshold_3;
+    if (threshold == null) return false;
+
+    const { count } = await supabase
+      .from('battles')
+      .select('*', { count: 'exact', head: true })
+      .eq('winner_id', monster.id);
+
+    return (count ?? 0) >= threshold;
+  }
+
+  async function handleFightComplete(result: {
+    winner: Monster;
+    loser: Monster;
+  }) {
+    setLastWinner(result.winner.name);
+
+    try {
+      await supabase
+        .from('battles')
+        .insert({ winner_id: result.winner.id, loser_id: result.loser.id });
+    } catch {
+      // Non-critical
+    }
+
+    const eligible = await checkEvolutionEligibility(result.winner);
+    if (eligible) {
+      setEvolvingMonster(result.winner);
+      setMode('evolving');
+    } else {
+      setMode('result');
+    }
+  }
+
+  function handleEvolutionComplete() {
+    setEvolvingMonster(null);
+    setMode('result');
+  }
+
+  function handleBackToLobby() {
+    setMode('lobby');
+    setBattleMonster(null);
+    setOpponentMonster(null);
+    setLastWinner(null);
+    fetchLeaderboard();
+  }
+
+  // ─── Fighting mode ──────────────────────────────────────────────
+  if (mode === 'fighting' && battleMonster && opponentMonster) {
+    return (
+      <MatchFight
+        monsterA={battleMonster}
+        monsterB={opponentMonster}
+        playerAName={battleMonster.name}
+        playerBName={opponentMonster.name}
+        onComplete={handleFightComplete}
+      />
+    );
+  }
+
+  // ─── Evolving mode ─────────────────────────────────────────────
+  if (mode === 'evolving' && evolvingMonster) {
+    return (
+      <EvolutionCutscene
+        monster={evolvingMonster}
+        playerIndex={0}
+        onComplete={handleEvolutionComplete}
+      />
+    );
+  }
+
+  // ─── Result mode ────────────────────────────────────────────────
+  if (mode === 'result') {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
+        <motion.p
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="font-retro text-sm text-retro-gold"
+        >
+          {lastWinner} wins!
+        </motion.p>
+        <RetroButton onClick={handleBackToLobby}>Back</RetroButton>
+      </div>
+    );
+  }
+
+  // ─── Lobby mode ─────────────────────────────────────────────────
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-8 p-6">
       {/* Title */}
@@ -103,9 +183,7 @@ export default function Home() {
         animate={{ y: 0, opacity: 1 }}
         className="text-center"
       >
-        <h1 className="font-retro text-xl text-retro-gold mb-2">
-          Pocket Mon
-        </h1>
+        <h1 className="font-retro text-xl text-retro-gold mb-2">Pocket Mon</h1>
         <p className="font-retro text-[8px] text-retro-white/50">
           Create monsters. Battle friends. Win glory.
         </p>
@@ -126,8 +204,8 @@ export default function Home() {
               onClick={() => setPlayerCount(n)}
               className={`font-retro text-xs w-8 h-8 border-2 transition-colors ${
                 playerCount === n
-                  ? "border-retro-gold bg-retro-gold/20 text-retro-gold"
-                  : "border-retro-white/30 text-retro-white/50 hover:border-retro-white/60"
+                  ? 'border-retro-gold bg-retro-gold/20 text-retro-gold'
+                  : 'border-retro-white/30 text-retro-white/50 hover:border-retro-white/60'
               }`}
             >
               {n}
@@ -145,20 +223,6 @@ export default function Home() {
         <RetroButton onClick={handleStart} className="text-sm px-10 py-4">
           Start Game
         </RetroButton>
-      </motion.div>
-
-      {/* Quick Battle */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <Link
-          href="/pokedex"
-          className="font-retro text-[9px] text-retro-white/40 hover:text-retro-white/70 transition-colors border-b border-retro-white/20 hover:border-retro-white/50 pb-0.5"
-        >
-          Quick Battle — use existing monsters
-        </Link>
       </motion.div>
 
       {/* Leaderboard */}
@@ -202,7 +266,9 @@ export default function Home() {
                           <span
                             key={s}
                             className={`text-[6px] ${
-                              s <= entry.stage ? "text-retro-gold" : "text-retro-white/20"
+                              s <= entry.stage
+                                ? 'text-retro-gold'
+                                : 'text-retro-white/20'
                             }`}
                           >
                             ◆
@@ -214,9 +280,13 @@ export default function Home() {
                       <span>
                         <span className="text-retro-green">{entry.wins}W</span>
                         <span className="text-retro-white/20"> / </span>
-                        <span className="text-retro-accent">{entry.losses}L</span>
+                        <span className="text-retro-accent">
+                          {entry.losses}L
+                        </span>
                       </span>
-                      <span className="text-retro-gold">ATK {entry.attack}</span>
+                      <span className="text-retro-gold">
+                        ATK {entry.attack}
+                      </span>
                     </div>
                   </div>
                 </button>
@@ -233,12 +303,11 @@ export default function Home() {
       )}
 
       {/* Monster Detail Sheet */}
-      <BottomSheet
-        open={selectedMonster !== null}
+      <MonsterDetailSheet
+        entry={selectedMonster}
         onClose={() => setSelectedMonster(null)}
-      >
-        {selectedMonster && <MonsterDetail entry={selectedMonster} />}
-      </BottomSheet>
+        onQuickBattle={leaderboard.length >= 2 ? startQuickBattle : undefined}
+      />
 
       {/* Footer */}
       <p className="font-retro text-[6px] text-retro-white/20">

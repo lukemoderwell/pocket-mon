@@ -17,7 +17,7 @@ const EFFECT_COLORS: Record<MoveEffect, string> = {
   stun: 'text-yellow-400 bg-yellow-400/10',
 };
 
-const STAGE_LABELS = ['', 'Baby', 'Teen', 'Apex'];
+// Stage labels removed - keeping selector minimal
 
 export function MonsterDetail({ entry }: MonsterDetailProps) {
   const [copied, setCopied] = useState(false);
@@ -60,62 +60,32 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      {/* Evolution stage selector */}
+      {/* Evolution stage selector — just tappable diamonds */}
       {hasHistory && (
-        <div className="flex items-center gap-2 w-full max-w-[280px]">
+        <div className="flex items-center gap-3">
           {[1, 2, 3].map((s) => {
             const exists = stageData.has(s);
             const isViewing = s === viewingStage;
             const isReached = s <= entry.stage;
-
-            if (!isReached) {
-              return (
-                <div
-                  key={s}
-                  className="flex-1 flex flex-col items-center gap-1 opacity-20"
-                >
-                  <div className="w-10 h-10 rounded-lg border-2 border-retro-white/20 flex items-center justify-center">
-                    <span className="font-retro text-[10px] text-retro-white/20">
-                      ?
-                    </span>
-                  </div>
-                  <span className="font-retro text-[6px] text-retro-white/20">
-                    {STAGE_LABELS[s]}
-                  </span>
-                </div>
-              );
-            }
 
             return (
               <button
                 key={s}
                 onClick={() => exists && setViewingStage(s)}
                 disabled={!exists}
-                className={`flex-1 flex flex-col items-center gap-1 transition-all ${
-                  exists ? 'cursor-pointer' : 'cursor-default opacity-40'
-                }`}
+                className={`relative p-2 text-base transition-all ${
+                  isViewing
+                    ? 'text-retro-gold scale-150'
+                    : isReached && exists
+                      ? 'text-retro-gold/40 active:scale-125'
+                      : 'text-retro-white/15'
+                } ${exists ? 'cursor-pointer' : 'cursor-default'}`}
               >
-                <div
-                  className={`w-10 h-10 rounded-lg border-2 flex items-center justify-center transition-all ${
-                    isViewing
-                      ? 'border-retro-gold bg-retro-gold/20 scale-110'
-                      : 'border-retro-white/30 bg-retro-white/5 hover:border-retro-white/50'
-                  }`}
-                >
-                  <span
-                    className={`font-retro text-sm ${
-                      isViewing ? 'text-retro-gold' : 'text-retro-white/50'
-                    }`}
-                  >
-                    {s}
-                  </span>
-                </div>
-                <span
-                  className={`font-retro text-[6px] ${
-                    isViewing ? 'text-retro-gold' : 'text-retro-white/40'
-                  }`}
-                >
-                  {STAGE_LABELS[s]}
+                ◆
+                <span className={`absolute inset-0 flex items-center justify-center font-retro text-[6px] ${
+                  isViewing ? 'text-retro-black' : 'text-retro-black/60'
+                }`}>
+                  {s}
                 </span>
               </button>
             );
