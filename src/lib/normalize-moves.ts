@@ -5,7 +5,7 @@ const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; coo
   strike: { minPower: 0.8, maxPower: 1.2, cooldown: 0 },
   guard:  { minPower: 0.4, maxPower: 0.7, cooldown: 1 },
   rush:   { minPower: 1.5, maxPower: 2.0, cooldown: 2 },
-  drain:  { minPower: 0.7, maxPower: 1.0, cooldown: 1 },
+  drain:  { minPower: 0.8, maxPower: 1.1, cooldown: 1 },
   stun:   { minPower: 0.5, maxPower: 0.8, cooldown: 2 },
 };
 

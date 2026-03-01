@@ -54,6 +54,7 @@ export interface Player {
 }
 
 export interface LeaderboardEntry {
+  id: string;
   monster_name: string;
   wins: number;
   losses: number;

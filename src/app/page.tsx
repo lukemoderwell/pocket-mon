@@ -54,6 +54,7 @@ export default function Home() {
       .map((m) => {
         const s = stats.get(m.id) ?? { wins: 0, losses: 0 };
         return {
+          id: m.id,
           monster_name: m.name,
           wins: s.wins,
           losses: s.losses,
@@ -144,6 +145,20 @@ export default function Home() {
         <RetroButton onClick={handleStart} className="text-sm px-10 py-4">
           Start Game
         </RetroButton>
+      </motion.div>
+
+      {/* Quick Battle */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+      >
+        <Link
+          href="/pokedex"
+          className="font-retro text-[9px] text-retro-white/40 hover:text-retro-white/70 transition-colors border-b border-retro-white/20 hover:border-retro-white/50 pb-0.5"
+        >
+          Quick Battle — use existing monsters
+        </Link>
       </motion.div>
 
       {/* Leaderboard */}

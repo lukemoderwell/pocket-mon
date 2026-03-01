@@ -62,12 +62,16 @@ function selectMove(
   const hpRatio = fighter.hp / fighter.monster.hp;
   const opponentHpRatio = opponent.hp / opponent.monster.hp;
 
-  // Low HP: prefer drain to heal, or guard to survive
+  // Low HP: prefer guard to survive
   if (hpRatio < 0.3) {
-    const drain = available.find((m) => m.move.effect === 'drain');
-    if (drain) return { move: drain.move, moveIndex: drain.index };
     const guard = available.find((m) => m.move.effect === 'guard');
     if (guard) return { move: guard.move, moveIndex: guard.index };
+  }
+
+  // Under half HP: prefer drain to sustain
+  if (hpRatio < 0.5) {
+    const drain = available.find((m) => m.move.effect === 'drain');
+    if (drain) return { move: drain.move, moveIndex: drain.index };
   }
 
   // Healthy + opponent exposed: prefer rush for big damage
@@ -183,7 +187,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     } else if (move.effect === 'rush') {
       attacker.defenseModifier = 1.25; // Take 25% more on next hit
     } else if (move.effect === 'drain') {
-      healAmount = Math.round(damage * 0.5);
+      healAmount = Math.round(damage * 0.6);
       attacker.hp = Math.min(attacker.monster.hp, attacker.hp + healAmount);
     } else if (move.effect === 'stun') {
       // 40% chance to stun opponent

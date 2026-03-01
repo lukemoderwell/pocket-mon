@@ -133,22 +133,41 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
 
       {/* Moves */}
       {current.moves.length > 0 && (
-        <div className="w-full max-w-[240px] flex flex-col gap-1.5">
+        <div className="w-full max-w-[240px] flex flex-col gap-2">
           <span className="font-retro text-[7px] text-retro-white/30 uppercase">
             Moves
           </span>
           {current.moves.map((move) => (
-            <div key={move.name} className="flex justify-between items-center">
-              <span className="font-retro text-[8px] text-retro-white/80">
-                {move.name}
-              </span>
-              <span
-                className={`font-retro text-[6px] px-1.5 py-0.5 uppercase ${
-                  EFFECT_COLORS[move.effect] || EFFECT_COLORS.strike
-                }`}
-              >
-                {move.effect}
-              </span>
+            <div key={move.name} className="pixel-border bg-retro-dark/50 px-2 py-1.5">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-retro text-[8px] text-retro-white/80">
+                  {move.name}
+                </span>
+                <span
+                  className={`font-retro text-[6px] px-1.5 py-0.5 uppercase ${
+                    EFFECT_COLORS[move.effect] || EFFECT_COLORS.strike
+                  }`}
+                >
+                  {move.effect}
+                </span>
+              </div>
+              <div className="flex gap-3 font-retro text-[6px] text-retro-white/40">
+                <span>
+                  PWR{" "}
+                  <span className="text-retro-accent">{move.power?.toFixed(1) ?? "?"}</span>
+                </span>
+                <span>
+                  CD{" "}
+                  <span className="text-retro-gold">{move.cooldown ?? 0}</span>
+                </span>
+                <span className="uppercase">
+                  {move.category === "special" ? (
+                    <span className="text-purple-400">SP.ATK</span>
+                  ) : (
+                    <span className="text-retro-accent/60">ATK</span>
+                  )}
+                </span>
+              </div>
             </div>
           ))}
         </div>

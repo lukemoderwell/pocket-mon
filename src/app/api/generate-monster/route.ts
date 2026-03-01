@@ -31,8 +31,14 @@ Examples of the tone:
 
 APPEARANCE: A vivid 1-2 sentence visual description for a pixel artist. Focus on: one distinctive body feature, specific colors, personality expressed through posture/expression. Aim for a design that reads clearly as a small silhouette.
 
-MOVES: Each move has a name (creative, thematic), an effect type, and a category.
-Effects: "strike" (reliable damage), "guard" (defensive, reduces incoming damage), "rush" (heavy hitter but leaves user exposed), "drain" (heals attacker for portion of damage), "stun" (chance to skip opponent's turn).
+MOVES: Each move has a name (creative, thematic), an effect type, and a category. The two moves MUST have DIFFERENT effect types.
+Effect types — pick TWO different ones from this list:
+- "strike": Reliable bread-and-butter damage.
+- "guard": Defensive — reduces incoming damage next turn. Great for tanks.
+- "rush": Heavy hit but leaves user exposed. High risk, high reward.
+- "drain": Vampiric — deals damage AND heals the attacker. Excellent for sustain fighters, bulky creatures, or anything parasitic/predatory.
+- "stun": Chance to skip opponent's next turn. Great for fast, tricky, or psychic creatures.
+All five effects are equally valid. Do NOT default to strike — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard.
 Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.`;
 
 export async function POST(req: Request) {
