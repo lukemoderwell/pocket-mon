@@ -57,6 +57,18 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (existing) {
+      // Backfill evolution thresholds for pre-migration monsters
+      if (existing.evo_threshold_2 == null || existing.evo_threshold_3 == null) {
+        const evo_threshold_2 = existing.evo_threshold_2 ?? (Math.floor(Math.random() * 6) + 5);
+        const evo_threshold_3 = existing.evo_threshold_3 ?? (Math.floor(Math.random() * 16) + 15);
+        const { data: updated } = await supabase
+          .from("monsters")
+          .update({ evo_threshold_2, evo_threshold_3 })
+          .eq("id", existing.id)
+          .select()
+          .single();
+        return NextResponse.json({ monster: updated ?? { ...existing, evo_threshold_2, evo_threshold_3 } });
+      }
       return NextResponse.json({ monster: existing });
     }
 

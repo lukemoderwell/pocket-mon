@@ -55,18 +55,39 @@ export default function BattlePage() {
   ): Promise<boolean> {
     if (monster.stage >= 3) return false;
 
-    const thresholdKey =
-      monster.stage === 1 ? "evo_threshold_2" : "evo_threshold_3";
-    const threshold = monster[thresholdKey as keyof Monster] as number | null;
-    if (threshold === null) return false;
+    // Fetch fresh monster data from DB to ensure thresholds are current
+    const { data: fresh, error: fetchError } = await supabase
+      .from("monsters")
+      .select("stage, evo_threshold_2, evo_threshold_3")
+      .eq("id", monster.id)
+      .single();
+
+    if (fetchError || !fresh) {
+      console.error("Failed to fetch monster for evolution check:", fetchError);
+      return false;
+    }
+
+    const stage = fresh.stage ?? monster.stage;
+    if (stage >= 3) return false;
+
+    const threshold =
+      stage === 1 ? fresh.evo_threshold_2 : fresh.evo_threshold_3;
+    if (threshold == null) return false;
 
     // Count total wins for this monster
-    const { count } = await supabase
+    const { count, error: countError } = await supabase
       .from("battles")
       .select("*", { count: "exact", head: true })
       .eq("winner_id", monster.id);
 
-    return (count ?? 0) >= threshold;
+    if (countError) {
+      console.error("Failed to count wins for evolution check:", countError);
+      return false;
+    }
+
+    const wins = count ?? 0;
+    console.log("Evolution check:", { name: monster.name, stage, wins, threshold, eligible: wins >= threshold });
+    return wins >= threshold;
   }
 
   async function handleFightComplete(result: {
