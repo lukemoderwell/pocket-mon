@@ -10,6 +10,12 @@ import { BottomSheet } from "@/components/bottom-sheet";
 import { MonsterDetail } from "@/components/monster-detail";
 import type { LeaderboardEntry, SortMode } from "@/lib/types";
 
+const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
+  { mode: "wins", label: "Wins" },
+  { mode: "alpha", label: "A–Z" },
+  { mode: "newest", label: "New" },
+];
+
 export default function PokedexPage() {
   const [monsters, setMonsters] = useState<LeaderboardEntry[]>([]);
   const [selectedMonster, setSelectedMonster] = useState<LeaderboardEntry | null>(null);
@@ -71,11 +77,10 @@ export default function PokedexPage() {
 
   // Fetch on mount + re-fetch when page regains focus
   useEffect(() => {
-    fetchAll();
-
     function handleVisibility() {
       if (document.visibilityState === "visible") fetchAll();
     }
+    handleVisibility();
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [fetchAll]);
@@ -90,17 +95,11 @@ export default function PokedexPage() {
         sorted.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
         break;
       case "newest":
-        sorted.sort((a, b) => b.created_at.localeCompare(a.created_at));
+        sorted.sort((a, b) => (b.created_at > a.created_at ? 1 : b.created_at < a.created_at ? -1 : 0));
         break;
     }
     return sorted;
   }, [monsters, sortMode]);
-
-  const sortOptions: { mode: SortMode; label: string }[] = [
-    { mode: "wins", label: "Wins" },
-    { mode: "alpha", label: "A–Z" },
-    { mode: "newest", label: "New" },
-  ];
 
   return (
     <div className="flex min-h-dvh flex-col items-center gap-6 p-6">
@@ -121,7 +120,7 @@ export default function PokedexPage() {
       {/* Sort controls */}
       <div className="w-full max-w-sm flex items-center gap-2">
         <span className="font-retro text-[7px] text-retro-white/30 shrink-0">Sort</span>
-        {sortOptions.map((opt) => (
+        {SORT_OPTIONS.map((opt) => (
           <button
             key={opt.mode}
             onClick={() => setSortMode(opt.mode)}

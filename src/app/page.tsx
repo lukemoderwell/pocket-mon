@@ -78,11 +78,10 @@ export default function Home() {
 
   // Fetch on mount + re-fetch when page regains focus (e.g. returning from battle)
   useEffect(() => {
-    fetchLeaderboard();
-
     function handleVisibility() {
       if (document.visibilityState === "visible") fetchLeaderboard();
     }
+    handleVisibility();
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [fetchLeaderboard]);
