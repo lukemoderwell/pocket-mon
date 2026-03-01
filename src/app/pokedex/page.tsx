@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "motion/react";
@@ -8,12 +8,19 @@ import { supabase } from "@/lib/supabase";
 import { RetroCard } from "@/components/retro-card";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { MonsterDetail } from "@/components/monster-detail";
-import type { LeaderboardEntry } from "@/lib/types";
+import type { LeaderboardEntry, SortMode } from "@/lib/types";
+
+const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
+  { mode: "wins", label: "Wins" },
+  { mode: "alpha", label: "A–Z" },
+  { mode: "newest", label: "New" },
+];
 
 export default function PokedexPage() {
   const [monsters, setMonsters] = useState<LeaderboardEntry[]>([]);
   const [selectedMonster, setSelectedMonster] = useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sortMode, setSortMode] = useState<SortMode>("wins");
 
   const fetchAll = useCallback(async () => {
     // Fetch all monsters
@@ -60,9 +67,9 @@ export default function PokedexPage() {
           stage: m.stage ?? 1,
           moves: Array.isArray(m.moves) ? m.moves : [],
           evolution_history: Array.isArray(m.evolution_history) ? m.evolution_history : [],
+          created_at: m.created_at ?? "",
         };
-      })
-      .sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+      });
 
     setMonsters(entries);
     setLoading(false);
@@ -70,14 +77,29 @@ export default function PokedexPage() {
 
   // Fetch on mount + re-fetch when page regains focus
   useEffect(() => {
-    fetchAll();
-
     function handleVisibility() {
       if (document.visibilityState === "visible") fetchAll();
     }
+    handleVisibility();
     document.addEventListener("visibilitychange", handleVisibility);
     return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [fetchAll]);
+
+  const sortedMonsters = useMemo(() => {
+    const sorted = [...monsters];
+    switch (sortMode) {
+      case "alpha":
+        sorted.sort((a, b) => a.monster_name.localeCompare(b.monster_name));
+        break;
+      case "wins":
+        sorted.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+        break;
+      case "newest":
+        sorted.sort((a, b) => (b.created_at > a.created_at ? 1 : b.created_at < a.created_at ? -1 : 0));
+        break;
+    }
+    return sorted;
+  }, [monsters, sortMode]);
 
   return (
     <div className="flex min-h-dvh flex-col items-center gap-6 p-6">
@@ -95,13 +117,31 @@ export default function PokedexPage() {
         </span>
       </div>
 
+      {/* Sort controls */}
+      <div className="w-full max-w-sm flex items-center gap-2">
+        <span className="font-retro text-[7px] text-retro-white/30 shrink-0">Sort</span>
+        {SORT_OPTIONS.map((opt) => (
+          <button
+            key={opt.mode}
+            onClick={() => setSortMode(opt.mode)}
+            className={`font-retro text-[7px] px-2 py-1 rounded transition-colors ${
+              sortMode === opt.mode
+                ? "bg-retro-gold text-retro-black"
+                : "bg-retro-white/5 text-retro-white/40 hover:bg-retro-white/10"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
       {/* Monster list */}
       <div className="w-full max-w-sm">
         {loading ? (
           <p className="font-retro text-[8px] text-retro-white/30 text-center py-8">
             Loading...
           </p>
-        ) : monsters.length === 0 ? (
+        ) : sortedMonsters.length === 0 ? (
           <RetroCard>
             <p className="font-retro text-[8px] text-retro-white/40 text-center">
               No monsters yet. Start a game to create some!
@@ -109,7 +149,7 @@ export default function PokedexPage() {
           </RetroCard>
         ) : (
           <div className="flex flex-col gap-2">
-            {monsters.map((entry, i) => (
+            {sortedMonsters.map((entry, i) => (
               <motion.button
                 key={`${entry.monster_name}-${i}`}
                 initial={{ opacity: 0, y: 10 }}

@@ -67,7 +67,10 @@ export interface LeaderboardEntry {
   stage: number;
   moves: Move[];
   evolution_history?: StageSnapshot[];
+  created_at: string;
 }
+
+export type SortMode = "wins" | "alpha" | "newest";
 
 export interface EvolutionResult {
   monster: Monster;
