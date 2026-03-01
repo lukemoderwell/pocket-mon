@@ -67,6 +67,7 @@ export default function Home() {
           stage: m.stage ?? 1,
           moves: Array.isArray(m.moves) ? m.moves : [],
           evolution_history: Array.isArray(m.evolution_history) ? m.evolution_history : [],
+          created_at: m.created_at ?? "",
         };
       })
       .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
