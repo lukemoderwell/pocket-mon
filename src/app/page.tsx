@@ -54,6 +54,7 @@ export default function Home() {
       .map((m) => {
         const s = stats.get(m.id) ?? { wins: 0, losses: 0 };
         return {
+          id: m.id,
           monster_name: m.name,
           wins: s.wins,
           losses: s.losses,
@@ -153,7 +154,7 @@ export default function Home() {
         transition={{ delay: 0.3 }}
       >
         <Link
-          href="/quick-battle"
+          href="/pokedex"
           className="font-retro text-[9px] text-retro-white/40 hover:text-retro-white/70 transition-colors border-b border-retro-white/20 hover:border-retro-white/50 pb-0.5"
         >
           Quick Battle — use existing monsters

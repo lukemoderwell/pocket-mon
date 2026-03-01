@@ -6,9 +6,11 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import { supabase } from "@/lib/supabase";
 import { RetroCard } from "@/components/retro-card";
+import { RetroButton } from "@/components/retro-button";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { MonsterDetail } from "@/components/monster-detail";
-import type { LeaderboardEntry, SortMode } from "@/lib/types";
+import { MatchFight } from "@/components/match-fight";
+import type { LeaderboardEntry, Monster, SortMode } from "@/lib/types";
 
 const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
   { mode: "wins", label: "Wins" },
@@ -16,11 +18,41 @@ const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
   { mode: "newest", label: "New" },
 ];
 
+/** Convert a LeaderboardEntry to a Monster for the battle engine */
+function toMonster(entry: LeaderboardEntry): Monster {
+  return {
+    id: entry.id,
+    name: entry.monster_name,
+    hp: entry.hp,
+    attack: entry.attack,
+    defense: entry.defense,
+    sp_attack: entry.sp_attack,
+    speed: entry.speed,
+    image_url: entry.image_url,
+    backstory: entry.backstory,
+    appearance: "",
+    moves: entry.moves,
+    stage: entry.stage,
+    evolution_history: entry.evolution_history ?? [],
+    evo_threshold_2: null,
+    evo_threshold_3: null,
+    created_at: entry.created_at,
+  };
+}
+
+type PageMode = "list" | "fighting" | "result";
+
 export default function PokedexPage() {
   const [monsters, setMonsters] = useState<LeaderboardEntry[]>([]);
   const [selectedMonster, setSelectedMonster] = useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>("wins");
+
+  // Quick battle state
+  const [mode, setMode] = useState<PageMode>("list");
+  const [battleMonster, setBattleMonster] = useState<Monster | null>(null);
+  const [opponentMonster, setOpponentMonster] = useState<Monster | null>(null);
+  const [lastWinner, setLastWinner] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     // Fetch all monsters
@@ -54,6 +86,7 @@ export default function PokedexPage() {
       .map((m) => {
         const s = stats.get(m.id) ?? { wins: 0, losses: 0 };
         return {
+          id: m.id,
           monster_name: m.name,
           wins: s.wins,
           losses: s.losses,
@@ -101,6 +134,71 @@ export default function PokedexPage() {
     return sorted;
   }, [monsters, sortMode]);
 
+  function startQuickBattle() {
+    if (!selectedMonster) return;
+    const others = monsters.filter((m) => m.id !== selectedMonster.id);
+    if (others.length === 0) return;
+    const opponent = others[Math.floor(Math.random() * others.length)];
+    setBattleMonster(toMonster(selectedMonster));
+    setOpponentMonster(toMonster(opponent));
+    setSelectedMonster(null);
+    setMode("fighting");
+  }
+
+  async function handleFightComplete(result: {
+    winner: Monster;
+    loser: Monster;
+  }) {
+    setLastWinner(result.winner.name);
+    setMode("result");
+
+    try {
+      await supabase
+        .from("battles")
+        .insert({ winner_id: result.winner.id, loser_id: result.loser.id });
+    } catch {
+      // Non-critical
+    }
+  }
+
+  function handleBackToList() {
+    setMode("list");
+    setBattleMonster(null);
+    setOpponentMonster(null);
+    setLastWinner(null);
+    fetchAll();
+  }
+
+  // ─── Fighting mode ──────────────────────────────────────────────
+  if (mode === "fighting" && battleMonster && opponentMonster) {
+    return (
+      <MatchFight
+        monsterA={battleMonster}
+        monsterB={opponentMonster}
+        playerAName={battleMonster.name}
+        playerBName={opponentMonster.name}
+        onComplete={handleFightComplete}
+      />
+    );
+  }
+
+  // ─── Result mode ────────────────────────────────────────────────
+  if (mode === "result") {
+    return (
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
+        <motion.p
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="font-retro text-sm text-retro-gold"
+        >
+          {lastWinner} wins!
+        </motion.p>
+        <RetroButton onClick={handleBackToList}>Back to Pokedex</RetroButton>
+      </div>
+    );
+  }
+
+  // ─── List mode ──────────────────────────────────────────────────
   return (
     <div className="flex min-h-dvh flex-col items-center gap-6 p-6">
       {/* Header */}
@@ -208,7 +306,21 @@ export default function PokedexPage() {
         open={selectedMonster !== null}
         onClose={() => setSelectedMonster(null)}
       >
-        {selectedMonster && <MonsterDetail entry={selectedMonster} />}
+        {selectedMonster && (
+          <>
+            <MonsterDetail entry={selectedMonster} />
+            {monsters.length >= 2 && (
+              <div className="flex justify-center mt-4">
+                <RetroButton
+                  onClick={startQuickBattle}
+                  className="text-[9px] px-6 py-2"
+                >
+                  Quick Battle
+                </RetroButton>
+              </div>
+            )}
+          </>
+        )}
       </BottomSheet>
     </div>
   );

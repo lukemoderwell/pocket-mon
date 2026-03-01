@@ -37,7 +37,14 @@ BACKSTORY: Write a Pokedex-style field observation about the evolved form — 1-
 
 APPEARANCE: A vivid 1-2 sentence visual description showing how the creature has grown — larger, more dramatic features, evolved distinctive trait. Clear silhouette, expressive.
 
-MOVES: Upgraded versions with more powerful names. Effects: "strike" (reliable), "guard" (defensive), "rush" (heavy but risky), "drain" (heals on hit), "stun" (chance to skip turn). Category: "physical" or "special".`;
+MOVES: Upgraded versions with more powerful names. Keep the same effect types as the current moves but give them stronger names. The two moves MUST have DIFFERENT effect types.
+Effect types:
+- "strike": Reliable damage.
+- "guard": Defensive, reduces incoming damage.
+- "rush": Heavy hit but leaves user exposed.
+- "drain": Vampiric — deals damage AND heals the attacker.
+- "stun": Chance to skip opponent's next turn.
+Category: "physical" or "special". Keep the same categories as the current moves.`;
 
 export async function POST(req: Request) {
   try {
