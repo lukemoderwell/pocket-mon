@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Press_Start_2P } from "next/font/google";
+import { Analytics } from '@vercel/analytics/next';
 import "./globals.css";
 
 const pressStart = Press_Start_2P({
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${pressStart.variable} scanlines`}>
         <div className="mx-auto min-h-dvh max-w-md">{children}</div>
+        <Analytics />
       </body>
     </html>
   );
