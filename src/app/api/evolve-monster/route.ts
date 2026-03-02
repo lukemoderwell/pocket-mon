@@ -17,11 +17,12 @@ const STAGE_DESCRIPTORS: Record<number, string> = {
   3: "Final, fully evolved apex form. Towering, muscular, and intimidating with battle-hardened details, intense piercing eyes, and a powerful dominant pose. A fearsome adult creature at the peak of its strength.",
 };
 
-const EVO_IMAGE_PROMPT = (name: string, stage: number, appearance: string) =>
-  `A 16-bit SNES-style pixel art monster named "${name}". ${appearance || STAGE_DESCRIPTORS[stage]} Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
+const EVO_IMAGE_PROMPT = (name: string, stage: number, appearance: string, previousAppearance: string) =>
+  `A 16-bit SNES-style pixel art monster named "${name}". This is the stage ${stage} evolution of a creature that previously looked like: "${previousAppearance}". Its evolved form: ${appearance || STAGE_DESCRIPTORS[stage]} CRITICAL: This must be recognizably the SAME creature evolved — keep the SAME core color palette, the SAME distinctive feature (grown/enhanced), and the SAME body type (larger/more powerful). Do NOT change the creature's colors. Design principles: simple readable silhouette, large expressive eyes, 2-3 main colors matching the previous form. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
 
-const EVO_STATS_PROMPT = (name: string, stage: number, budget: number, currentMoves: Move[]) =>
+const EVO_STATS_PROMPT = (name: string, stage: number, budget: number, currentMoves: Move[], currentAppearance: string) =>
   `You are a creature designer. Generate evolved stats, appearance, Pokedex entry, and two upgraded battle moves for a stage ${stage} monster named "${name}".
+${currentAppearance ? `Current appearance: "${currentAppearance}". The evolved form MUST keep the same color palette and distinctive features — just larger, more powerful, and more dramatic.` : ""}
 ${currentMoves.length > 0 ? `Current moves: ${currentMoves.map(m => `${m.name} (${m.effect}, ${(m as Move & { category?: string }).category || "physical"})`).join(", ")}. Evolve these into stronger thematic versions, keeping their categories.` : ""}
 Return ONLY a JSON object with these fields:
 {
@@ -35,7 +36,7 @@ STATS: Integers 30-${stage === 2 ? 120 : 140}. Distribute exactly ${budget} poin
 
 BACKSTORY: Write a Pokedex-style field observation about the evolved form — 1-2 sentences about new abilities, changed behavior, or ecological role. NOT an origin story. Think nature documentary.
 
-APPEARANCE: A vivid 1-2 sentence visual description showing how the creature has grown — larger, more dramatic features, evolved distinctive trait. Clear silhouette, expressive.
+APPEARANCE: A vivid 1-2 sentence visual description showing how the creature has grown. IMPORTANT: Keep the SAME colors and SAME distinctive feature from the current appearance — just make them bigger, sharper, or more dramatic. Do NOT invent new colors or replace the creature's defining trait. Think of how Charmander keeps its orange body and tail flame through all evolutions.
 
 MOVES: Upgraded versions with more powerful names. Keep the same effect types as the current moves but give them stronger names. The two moves MUST have DIFFERENT effect types.
 Effect types:
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
     // Step 1: Generate stats, appearance, backstory, and evolved moves
     const statsResult = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: EVO_STATS_PROMPT(monster.name, toStage, config.budget, currentMoves) }],
+      messages: [{ role: "user", content: EVO_STATS_PROMPT(monster.name, toStage, config.budget, currentMoves, monster.appearance ?? "") }],
       response_format: { type: "json_object" },
     });
 
@@ -123,7 +124,7 @@ export async function POST(req: Request) {
     // Step 2: Generate image using the evolved appearance
     const imageResult = await openai.images.generate({
       model: "gpt-image-1",
-      prompt: EVO_IMAGE_PROMPT(monster.name, toStage, appearance),
+      prompt: EVO_IMAGE_PROMPT(monster.name, toStage, appearance, monster.appearance ?? ""),
       n: 1,
       size: "1024x1024",
       quality: "medium",
