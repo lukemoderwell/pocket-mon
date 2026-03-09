@@ -13,6 +13,7 @@ export interface BattleRound {
   healAmount: number;
   stunned: boolean;
   wasStunned: boolean;
+  missed: boolean; // true if attack missed (accuracy + dodge)
 }
 
 export interface BattleResult {
@@ -38,6 +39,7 @@ const STRUGGLE: Move = {
   category: 'physical',
   power: 0.5,
   cooldown: 0,
+  accuracy: 1.0,
 };
 
 /**
@@ -148,6 +150,24 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     );
   };
 
+  /**
+   * Check if an attack hits, factoring in move accuracy and
+   * speed-based dodge chance. Faster defenders are harder to hit.
+   * Dodge chance = (defender.speed - attacker.speed) / 300, clamped to [0, 0.25].
+   * Final hit chance = move.accuracy * (1 - dodgeChance).
+   */
+  const doesHit = (
+    attacker: FighterState,
+    defender: FighterState,
+    move: Move,
+  ): boolean => {
+    const moveAccuracy = move.accuracy ?? 1.0;
+    const speedDiff = defender.monster.speed - attacker.monster.speed;
+    const dodgeChance = Math.min(0.25, Math.max(0, speedDiff / 300));
+    const hitChance = moveAccuracy * (1 - dodgeChance);
+    return Math.random() < hitChance;
+  };
+
   const executeTurn = (attackerIdx: 0 | 1) => {
     const defenderIdx = attackerIdx === 0 ? 1 : 0;
     const attacker = fighters[attackerIdx];
@@ -168,11 +188,41 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         healAmount: 0,
         stunned: false,
         wasStunned: true,
+        missed: false,
       });
       return;
     }
 
     const { move, moveIndex } = selectMove(attacker, defender);
+
+    // Set cooldown for the used move (even on miss)
+    if (moveIndex >= 0) {
+      attacker.cooldowns[moveIndex] = move.cooldown;
+    }
+
+    // Check accuracy + speed-based dodge
+    if (!doesHit(attacker, defender, move)) {
+      // Miss: rush still leaves attacker exposed
+      if (move.effect === 'rush') {
+        attacker.defenseModifier = 1.25;
+      }
+      rounds.push({
+        attacker: attacker.monster.name,
+        defender: defender.monster.name,
+        damage: 0,
+        attackerHp: attacker.hp,
+        defenderHp: defender.hp,
+        moveName: move.name,
+        moveEffect: move.effect,
+        moveCategory: move.category || 'physical',
+        healAmount: 0,
+        stunned: false,
+        wasStunned: false,
+        missed: true,
+      });
+      return;
+    }
+
     const damage = calcDamage(attacker, defender, move);
     let healAmount = 0;
 
@@ -196,11 +246,6 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       }
     }
 
-    // Set cooldown for the used move
-    if (moveIndex >= 0) {
-      attacker.cooldowns[moveIndex] = move.cooldown;
-    }
-
     rounds.push({
       attacker: attacker.monster.name,
       defender: defender.monster.name,
@@ -213,6 +258,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       healAmount,
       stunned: defender.stunned,
       wasStunned: false,
+      missed: false,
     });
   };
 

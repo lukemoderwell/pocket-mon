@@ -194,6 +194,12 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
                   </span>
                 </span>
                 <span>
+                  ACC{' '}
+                  <span className="text-retro-blue">
+                    {move.accuracy != null ? `${Math.round(move.accuracy * 100)}%` : '100%'}
+                  </span>
+                </span>
+                <span>
                   CD{' '}
                   <span className="text-retro-gold">{move.cooldown ?? 0}</span>
                 </span>

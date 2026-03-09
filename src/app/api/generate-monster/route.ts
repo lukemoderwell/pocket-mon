@@ -18,7 +18,7 @@ Return ONLY a JSON object with these fields:
   "hp": number, "attack": number, "defense": number, "sp_attack": number, "speed": number,
   "backstory": string,
   "appearance": string,
-  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special" }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special" }]
+  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }]
 }
 
 STATS: Integers 30-100. Distribute exactly ${STAT_BUDGET} points across hp/attack/defense/sp_attack/speed. Create a distinct archetype — don't make all stats similar. A physical bruiser should have high attack but low sp_attack. A mystic creature should have high sp_attack but low attack. Tanks have high hp+defense but low speed, etc.
@@ -31,15 +31,17 @@ Examples of the tone:
 
 APPEARANCE: A vivid 1-2 sentence visual description for a pixel artist. Focus on: one distinctive body feature, specific colors, personality expressed through posture/expression. Aim for a design that reads clearly as a small silhouette.
 
-MOVES: Each move has a name (creative, thematic), an effect type, and a category. The two moves MUST have DIFFERENT effect types.
+MOVES: Each move has a name (creative, thematic), an effect type, a category, and an accuracy value. The two moves MUST have DIFFERENT effect types.
 Effect types — pick TWO different ones from this list:
-- "strike": Reliable bread-and-butter damage.
-- "guard": Defensive — reduces incoming damage next turn. Great for tanks.
-- "rush": Heavy hit but leaves user exposed. High risk, high reward.
-- "drain": Vampiric — deals damage AND heals the attacker. Excellent for sustain fighters, bulky creatures, or anything parasitic/predatory.
-- "stun": Chance to skip opponent's next turn. Great for fast, tricky, or psychic creatures.
+- "strike": Reliable damage. Accuracy 0.85-1.0. Melee strikes (punches, bites, slashes) should be 1.0. Ranged strikes (shooting water, hurling rocks, fire breath) should be lower (0.85-0.95) since projectiles can miss.
+- "guard": Defensive — reduces incoming damage next turn. Always accuracy 1.0.
+- "rush": Heavy hit but leaves user exposed. Accuracy 0.6-0.8. Wild, reckless attacks are less accurate (0.6-0.65). Focused charges can be higher (0.75-0.8).
+- "drain": Vampiric — deals damage AND heals the attacker. Accuracy 0.8-0.95. Contact drain (biting, leeching) should be higher. Ranged drain (psychic siphon) can be lower.
+- "stun": Chance to skip opponent's next turn. Accuracy 0.7-0.9. Direct contact stuns (headbutt, electric touch) should be higher. Ranged stuns (hypnosis, psychic wave) can be lower.
 All five effects are equally valid. Do NOT default to strike — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard.
-Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.`;
+Accuracy: A number between 0.0 and 1.0. Melee/contact moves are more accurate than ranged/projectile moves. The accuracy should reflect HOW the creature attacks — a claw swipe is precise, a water blast is not.
+Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.
+IMPORTANT: At least one of the two moves MUST be "special" category if the creature has any magical, elemental, psychic, or energy-based traits. Creatures with high sp_attack MUST have at least one special move. Only pure brute-force fighters should have two physical moves.`;
 
 export async function POST(req: Request) {
   try {
@@ -84,7 +86,7 @@ export async function POST(req: Request) {
     ) as {
       hp: number; attack: number; defense: number; sp_attack: number; speed: number;
       backstory: string; appearance: string;
-      moves: { name: string; effect: string; category: string }[];
+      moves: { name: string; effect: string; category: string; accuracy?: number }[];
     };
     const stats = normalizeStats(raw, STAT_BUDGET, 100);
     const backstory = typeof raw.backstory === "string" ? raw.backstory : "";

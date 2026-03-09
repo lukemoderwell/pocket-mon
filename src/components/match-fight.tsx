@@ -93,6 +93,16 @@ export function MatchFight({
       return () => clearTimeout(timer);
     }
 
+    if (round.missed) {
+      // Missed attack - show miss message and move on
+      setCurrentCaption(`${round.attacker} uses ${round.moveName}... but it missed!`);
+      const timer = setTimeout(() => {
+        setCurrentCaption(null);
+        setCurrentRound((r) => r + 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+
     // Phase 1: Lunge (200ms)
     setActiveAttacker(attackerSide as 0 | 1);
     setTurnPhase("lunge");
