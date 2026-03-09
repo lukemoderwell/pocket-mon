@@ -1,12 +1,12 @@
 import type { Move, MoveEffect, MoveCategory } from "./types";
 
 /** Power, cooldown, and accuracy rules per effect type */
-const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; cooldown: number; accuracy: number }> = {
-  strike: { minPower: 0.8, maxPower: 1.2, cooldown: 0, accuracy: 1.0 },
-  guard:  { minPower: 0.4, maxPower: 0.7, cooldown: 1, accuracy: 1.0 },
-  rush:   { minPower: 1.2, maxPower: 1.75, cooldown: 2, accuracy: 0.75 },
-  drain:  { minPower: 0.8, maxPower: 1.1, cooldown: 1, accuracy: 0.9 },
-  stun:   { minPower: 0.5, maxPower: 0.8, cooldown: 2, accuracy: 0.85 },
+const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; cooldown: number; minAccuracy: number; maxAccuracy: number }> = {
+  strike: { minPower: 0.8, maxPower: 1.2, cooldown: 0, minAccuracy: 0.85, maxAccuracy: 1.0 },
+  guard:  { minPower: 0.4, maxPower: 0.7, cooldown: 1, minAccuracy: 1.0,  maxAccuracy: 1.0 },
+  rush:   { minPower: 1.2, maxPower: 1.75, cooldown: 2, minAccuracy: 0.6,  maxAccuracy: 0.8 },
+  drain:  { minPower: 0.8, maxPower: 1.1, cooldown: 1, minAccuracy: 0.8,  maxAccuracy: 0.95 },
+  stun:   { minPower: 0.5, maxPower: 0.8, cooldown: 2, minAccuracy: 0.7,  maxAccuracy: 0.9 },
 };
 
 /** Higher stages get a small power ceiling boost */
@@ -41,11 +41,15 @@ export function normalizeMove(raw: Partial<Move>, stage: number): Move {
     ? Math.round(Math.min(maxPower, Math.max(rules.minPower, raw.power)) * 100) / 100
     : Math.round(((rules.minPower + maxPower) / 2) * 100) / 100;
 
+  const accuracy = typeof raw.accuracy === "number"
+    ? Math.round(Math.min(rules.maxAccuracy, Math.max(rules.minAccuracy, raw.accuracy)) * 100) / 100
+    : Math.round(((rules.minAccuracy + rules.maxAccuracy) / 2) * 100) / 100;
+
   const name = typeof raw.name === "string" && raw.name.trim().length > 0
     ? raw.name.trim().slice(0, 30)
     : `${effect.charAt(0).toUpperCase() + effect.slice(1)} Move`;
 
-  return { name, effect, category, power, cooldown: rules.cooldown, accuracy: rules.accuracy };
+  return { name, effect, category, power, cooldown: rules.cooldown, accuracy };
 }
 
 /**

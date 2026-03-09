@@ -48,7 +48,7 @@ Return ONLY a JSON object with these fields:
   "hp": number, "attack": number, "defense": number, "sp_attack": number, "speed": number,
   "backstory": string,
   "appearance": string,
-  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special" }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special" }]
+  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }]
 }
 
 STATS: Integers 30-${stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
@@ -66,11 +66,12 @@ MOVES: Evolve the current moves into stronger thematic versions. The move names 
 ${stage === 2 ? '- Moves should feel faster, sharper, more confident — the creature is coming into its own.' : '- Moves should feel devastating, masterful — the creature has fully mastered its abilities.'}
 Keep the same effect types as the current moves. The two moves MUST have DIFFERENT effect types.
 Effect types:
-- "strike": Reliable damage. Never misses.
-- "guard": Defensive, reduces incoming damage. Never misses.
-- "rush": Heavy hit but leaves user exposed AND has low accuracy (75%). Faster opponents can dodge it.
-- "drain": Vampiric — deals damage AND heals the attacker. Slightly reduced accuracy (90%).
-- "stun": Chance to skip opponent's next turn. Moderate accuracy (85%).
+- "strike": Reliable damage. Accuracy 0.85-1.0. Melee contact moves should be 1.0, ranged projectile moves (blasts, beams, thrown objects) should be lower.
+- "guard": Defensive, reduces incoming damage. Always accuracy 1.0.
+- "rush": Heavy hit but leaves user exposed. Accuracy 0.6-0.8. Wild charges are less accurate, focused strikes can be higher.
+- "drain": Vampiric — deals damage AND heals the attacker. Accuracy 0.8-0.95. Contact drain is more accurate than ranged drain.
+- "stun": Chance to skip opponent's next turn. Accuracy 0.7-0.9. Direct stuns are more accurate than ranged/psychic stuns.
+Accuracy: A number reflecting how the creature attacks. Melee/contact = more accurate, ranged/projectile = less accurate.
 Category: "physical" or "special". If the creature has high sp_attack or uses magical/elemental/psychic abilities, at least one move SHOULD be "special". Creatures that are pure brute fighters can keep both physical.`;
 
 export async function POST(req: Request) {
@@ -155,7 +156,7 @@ export async function POST(req: Request) {
       speed: number;
       backstory: string;
       appearance: string;
-      moves: { name: string; effect: string; category: string }[];
+      moves: { name: string; effect: string; category: string; accuracy?: number }[];
     };
     const stats = normalizeStats(raw, config.budget, config.maxStat);
     const backstory =
