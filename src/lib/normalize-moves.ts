@@ -4,7 +4,7 @@ import type { Move, MoveEffect, MoveCategory } from "./types";
 const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; cooldown: number; accuracy: number }> = {
   strike: { minPower: 0.8, maxPower: 1.2, cooldown: 0, accuracy: 1.0 },
   guard:  { minPower: 0.4, maxPower: 0.7, cooldown: 1, accuracy: 1.0 },
-  rush:   { minPower: 1.2, maxPower: 1.6, cooldown: 2, accuracy: 0.75 },
+  rush:   { minPower: 1.2, maxPower: 1.75, cooldown: 2, accuracy: 0.75 },
   drain:  { minPower: 0.8, maxPower: 1.1, cooldown: 1, accuracy: 0.9 },
   stun:   { minPower: 0.5, maxPower: 0.8, cooldown: 2, accuracy: 0.85 },
 };
