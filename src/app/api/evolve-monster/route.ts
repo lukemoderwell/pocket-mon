@@ -64,14 +64,14 @@ ${stage === 2 ? '  - What was a small decorative trait is now a functional, eye-
 
 MOVES: Evolve the current moves into stronger thematic versions. The move names should reflect the creature's growing power and its signature feature.
 ${stage === 2 ? '- Moves should feel faster, sharper, more confident — the creature is coming into its own.' : '- Moves should feel devastating, masterful — the creature has fully mastered its abilities.'}
-Keep the same effect types and categories as the current moves. The two moves MUST have DIFFERENT effect types.
+Keep the same effect types as the current moves. The two moves MUST have DIFFERENT effect types.
 Effect types:
-- "strike": Reliable damage.
-- "guard": Defensive, reduces incoming damage.
-- "rush": Heavy hit but leaves user exposed.
-- "drain": Vampiric — deals damage AND heals the attacker.
-- "stun": Chance to skip opponent's next turn.
-Category: "physical" or "special". Keep the same categories as the current moves.`;
+- "strike": Reliable damage. Never misses.
+- "guard": Defensive, reduces incoming damage. Never misses.
+- "rush": Heavy hit but leaves user exposed AND has low accuracy (75%). Faster opponents can dodge it.
+- "drain": Vampiric — deals damage AND heals the attacker. Slightly reduced accuracy (90%).
+- "stun": Chance to skip opponent's next turn. Moderate accuracy (85%).
+Category: "physical" or "special". If the creature has high sp_attack or uses magical/elemental/psychic abilities, at least one move SHOULD be "special". Creatures that are pure brute fighters can keep both physical.`;
 
 export async function POST(req: Request) {
   try {

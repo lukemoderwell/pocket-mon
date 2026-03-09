@@ -7,6 +7,7 @@ export interface Move {
   category: MoveCategory;
   power: number;
   cooldown: number;
+  accuracy: number; // 0.0 - 1.0, chance to hit (before dodge)
 }
 
 export interface StageSnapshot {

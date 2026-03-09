@@ -33,13 +33,14 @@ APPEARANCE: A vivid 1-2 sentence visual description for a pixel artist. Focus on
 
 MOVES: Each move has a name (creative, thematic), an effect type, and a category. The two moves MUST have DIFFERENT effect types.
 Effect types — pick TWO different ones from this list:
-- "strike": Reliable bread-and-butter damage.
-- "guard": Defensive — reduces incoming damage next turn. Great for tanks.
-- "rush": Heavy hit but leaves user exposed. High risk, high reward.
-- "drain": Vampiric — deals damage AND heals the attacker. Excellent for sustain fighters, bulky creatures, or anything parasitic/predatory.
-- "stun": Chance to skip opponent's next turn. Great for fast, tricky, or psychic creatures.
+- "strike": Reliable bread-and-butter damage. Never misses.
+- "guard": Defensive — reduces incoming damage next turn. Never misses.
+- "rush": Heavy hit but leaves user exposed AND has low accuracy (75%). High risk, high reward. Faster opponents can dodge it.
+- "drain": Vampiric — deals damage AND heals the attacker. Slightly reduced accuracy (90%). Excellent for sustain fighters, bulky creatures, or anything parasitic/predatory.
+- "stun": Chance to skip opponent's next turn. Moderate accuracy (85%). Great for fast, tricky, or psychic creatures.
 All five effects are equally valid. Do NOT default to strike — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard.
-Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.`;
+Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.
+IMPORTANT: At least one of the two moves MUST be "special" category if the creature has any magical, elemental, psychic, or energy-based traits. Creatures with high sp_attack MUST have at least one special move. Only pure brute-force fighters should have two physical moves.`;
 
 export async function POST(req: Request) {
   try {
