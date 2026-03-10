@@ -28,7 +28,8 @@ interface FighterState {
   hp: number;
   moves: Move[];
   cooldowns: [number, number]; // cooldown remaining for move 0 and 1
-  defenseModifier: number; // 1.0 = normal, 0.6 = guarded, 1.25 = exposed
+  defenseModifier: number; // 1.0 = normal, 0.3 = guarded, 1.25 = exposed
+  guardHitsLeft: number; // how many incoming hits the guard buff absorbs (0 = no guard)
   stunned: boolean; // skip next turn
 }
 
@@ -43,7 +44,33 @@ const STRUGGLE: Move = {
 };
 
 /**
+ * Estimate damage a move would deal (average, ignoring variance).
+ */
+function estimateDamage(
+  attacker: FighterState,
+  defender: FighterState,
+  move: Move,
+): number {
+  const category = move.category || 'physical';
+  const atkStat =
+    category === 'special'
+      ? (attacker.monster.sp_attack ?? attacker.monster.attack)
+      : attacker.monster.attack;
+  const raw = Math.max(1, atkStat - Math.floor(defender.monster.defense * 0.6));
+  return Math.max(1, Math.round(raw * move.power * defender.defenseModifier));
+}
+
+/**
  * Select which move to use based on HP ratio, cooldowns, and game state.
+ *
+ * Priority:
+ * 1. If we can likely finish off the opponent → pick the best killing blow
+ * 2. Opponent is guarded → prefer stun/drain (don't waste big hits into a wall)
+ * 3. Healthy + opponent exposed → rush for big damage
+ * 4. Healthy → stun for crowd control
+ * 5. Hurt but opponent is also hurt → drain to sustain while dealing damage
+ * 6. Taking heavy damage and NOT close to killing → guard to weather the storm
+ * 7. Default → highest power available
  */
 function selectMove(
   fighter: FighterState,
@@ -61,34 +88,64 @@ function selectMove(
     return { move: STRUGGLE, moveIndex: -1 };
   }
 
+  // Only one option → use it
+  if (available.length === 1) {
+    return { move: available[0].move, moveIndex: available[0].index };
+  }
+
   const hpRatio = fighter.hp / fighter.monster.hp;
   const opponentHpRatio = opponent.hp / opponent.monster.hp;
 
-  // Low HP: prefer guard to survive
-  if (hpRatio < 0.3) {
-    const guard = available.find((m) => m.move.effect === 'guard');
-    if (guard) return { move: guard.move, moveIndex: guard.index };
+  const find = (effect: string) =>
+    available.find((m) => m.move.effect === effect);
+
+  // --- PRIORITY 1: Finish them off ---
+  // Can any available move likely kill the opponent? If so, pick the best one.
+  const killShots = available.filter(
+    (m) => estimateDamage(fighter, opponent, m.move) >= opponent.hp,
+  );
+  if (killShots.length > 0) {
+    // Among kill shots, prefer highest accuracy (most reliable kill)
+    killShots.sort(
+      (a, b) => (b.move.accuracy ?? 1) - (a.move.accuracy ?? 1),
+    );
+    return { move: killShots[0].move, moveIndex: killShots[0].index };
   }
 
-  // Under half HP: prefer drain to sustain
-  if (hpRatio < 0.5) {
-    const drain = available.find((m) => m.move.effect === 'drain');
+  // --- PRIORITY 2: Opponent is heavily guarded → don't waste big moves ---
+  if (opponent.defenseModifier <= 0.5) {
+    // Opponent is guarded — prefer stun (bypass the wall) or drain (sustain)
+    const stun = find('stun');
+    if (stun) return { move: stun.move, moveIndex: stun.index };
+    const drain = find('drain');
     if (drain) return { move: drain.move, moveIndex: drain.index };
   }
 
-  // Healthy + opponent exposed: prefer rush for big damage
-  if (hpRatio > 0.7 && opponent.defenseModifier >= 1.0) {
-    const rush = available.find((m) => m.move.effect === 'rush');
+  // --- PRIORITY 3: Healthy + opponent exposed → rush for big damage ---
+  if (hpRatio > 0.6 && opponent.defenseModifier >= 1.0) {
+    const rush = find('rush');
     if (rush) return { move: rush.move, moveIndex: rush.index };
   }
 
-  // Healthy: try stun to control the fight
-  if (hpRatio > 0.5) {
-    const stun = available.find((m) => m.move.effect === 'stun');
+  // --- PRIORITY 4: Healthy → stun for crowd control ---
+  if (hpRatio > 0.6) {
+    const stun = find('stun');
     if (stun) return { move: stun.move, moveIndex: stun.index };
   }
 
-  // Default: pick highest power available
+  // --- PRIORITY 5: Hurt but opponent is also hurting → drain to sustain ---
+  if (hpRatio < 0.6 && opponentHpRatio < 0.6) {
+    const drain = find('drain');
+    if (drain) return { move: drain.move, moveIndex: drain.index };
+  }
+
+  // --- PRIORITY 6: Taking a beating and can't kill soon → guard up ---
+  if (hpRatio < 0.35 && opponentHpRatio > 0.3) {
+    const guard = find('guard');
+    if (guard) return { move: guard.move, moveIndex: guard.index };
+  }
+
+  // --- PRIORITY 7: Default → pick highest power available ---
   available.sort((a, b) => b.move.power - a.move.power);
   return { move: available[0].move, moveIndex: available[0].index };
 }
@@ -112,6 +169,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       moves: getMoves(first),
       cooldowns: [0, 0],
       defenseModifier: 1.0,
+      guardHitsLeft: 0,
       stunned: false,
     },
     {
@@ -120,6 +178,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       moves: getMoves(second),
       cooldowns: [0, 0],
       defenseModifier: 1.0,
+      guardHitsLeft: 0,
       stunned: false,
     },
   ];
@@ -228,12 +287,21 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
 
     defender.hp = Math.max(0, defender.hp - damage);
 
-    // After being hit, defender's modifier resets to normal
-    defender.defenseModifier = 1.0;
+    // After being hit, consume guard if active; otherwise reset modifier
+    if (defender.guardHitsLeft > 0) {
+      defender.guardHitsLeft -= 1;
+      if (defender.guardHitsLeft === 0) {
+        defender.defenseModifier = 1.0; // guard expired
+      }
+      // else: guard persists for remaining hits
+    } else {
+      defender.defenseModifier = 1.0;
+    }
 
     // Apply post-attack effects
     if (move.effect === 'guard') {
-      attacker.defenseModifier = 0.6; // Take 40% less on next hit
+      attacker.defenseModifier = 0.3; // Take 70% less damage for 2 incoming hits
+      attacker.guardHitsLeft = 2;
     } else if (move.effect === 'rush') {
       attacker.defenseModifier = 1.25; // Take 25% more on next hit
     } else if (move.effect === 'drain') {
