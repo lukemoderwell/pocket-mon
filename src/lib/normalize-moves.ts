@@ -49,19 +49,24 @@ export function normalizeMove(raw: Partial<Move>, stage: number): Move {
     ? raw.name.trim().slice(0, 30)
     : `${effect.charAt(0).toUpperCase() + effect.slice(1)} Move`;
 
-  return { name, effect, category, power, cooldown: rules.cooldown, accuracy };
+  // Rush moves always have priority (go first regardless of speed)
+  const priority = effect === "rush" ? true : undefined;
+
+  return { name, effect, category, power, cooldown: rules.cooldown, accuracy, ...(priority ? { priority } : {}) };
 }
 
 /**
  * Normalize an array of AI-generated moves.
- * Ensures exactly 2 moves. Falls back to defaults if input is invalid.
+ * Stage 1-2: exactly 2 moves. Stage 3: up to 3 moves.
+ * Falls back to defaults if input is invalid.
  */
 export function normalizeMoves(rawMoves: unknown, stage: number): Move[] {
   if (!Array.isArray(rawMoves) || rawMoves.length === 0) {
     return getDefaultMoves(stage);
   }
 
-  const moves = rawMoves.slice(0, 2).map((m) => normalizeMove(m, stage));
+  const maxMoves = stage >= 3 ? 3 : 2;
+  const moves = rawMoves.slice(0, maxMoves).map((m) => normalizeMove(m, stage));
 
   // Pad to 2 if only 1 was provided
   if (moves.length < 2) {
@@ -76,8 +81,12 @@ export function normalizeMoves(rawMoves: unknown, stage: number): Move[] {
  */
 export function getDefaultMoves(stage = 1): Move[] {
   const bonus = STAGE_BONUS[stage] ?? 0;
-  return [
+  const moves: Move[] = [
     { name: "Basic Strike", effect: "strike" as MoveEffect, category: "physical" as MoveCategory, power: Math.round((1.0 + bonus) * 100) / 100, cooldown: 0, accuracy: 1.0 },
-    { name: "Wild Charge", effect: "rush" as MoveEffect, category: "physical" as MoveCategory, power: Math.round((1.4 + bonus) * 100) / 100, cooldown: 2, accuracy: 0.75 },
+    { name: "Wild Charge", effect: "rush" as MoveEffect, category: "physical" as MoveCategory, power: Math.round((1.4 + bonus) * 100) / 100, cooldown: 2, accuracy: 0.75, priority: true },
   ];
+  if (stage >= 3) {
+    moves.push({ name: "Life Drain", effect: "drain" as MoveEffect, category: "special" as MoveCategory, power: Math.round((1.0 + bonus) * 100) / 100, cooldown: 1, accuracy: 0.9 });
+  }
+  return moves;
 }

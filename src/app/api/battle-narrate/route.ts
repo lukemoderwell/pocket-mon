@@ -14,11 +14,14 @@ export async function POST(req: Request) {
 
     const keyMoments = rounds.slice(0, 8).map((r) => {
       if (r.wasStunned) return `${r.attacker} is stunned and can't move!`;
+      if (r.missed) return `${r.attacker} uses ${r.moveName} but it missed!`;
       let line = `${r.attacker} uses ${r.moveName || "an attack"} (${r.moveCategory || "physical"} ${r.moveEffect || "strike"}) on ${r.defender} for ${r.damage} damage`;
+      if (r.critical) line += ` — CRITICAL HIT!`;
       if (r.healAmount > 0) line += `, draining ${r.healAmount} HP`;
       if (r.stunned) line += ` — ${r.defender} is stunned!`;
-      if (r.moveEffect === "guard") line += ` and raises defense`;
+      if (r.moveEffect === "guard") line += ` and raises a powerful shield`;
       if (r.moveEffect === "rush") line += ` but is left exposed`;
+      if (r.passiveTriggered) line += ` (${r.passiveTriggered} ability activated)`;
       return line;
     });
 
@@ -31,7 +34,7 @@ Total rounds: ${rounds.length}
 Key moments:
 ${keyMoments.join("\n")}
 
-Write in the style of a classic SNES RPG. Be dramatic but concise. Use present tense. Reference specific moves, tactical moments (guards, exposures, drains, stuns), and momentum shifts. No emojis.`;
+Write in the style of a classic SNES RPG. Be dramatic but concise. Use present tense. Reference specific moves, tactical moments (critical hits, guards, exposures, drains, stuns, passive abilities), and momentum shifts. No emojis.`;
 
     const result = await openai.chat.completions.create({
       model: "gpt-4.1-mini",

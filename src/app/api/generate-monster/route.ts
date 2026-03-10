@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { supabase } from "@/lib/supabase";
 import { normalizeStats } from "@/lib/normalize-stats";
 import { normalizeMoves } from "@/lib/normalize-moves";
+import { assignPassive } from "@/lib/passive-abilities";
 
 const openai = new OpenAI();
 
@@ -92,6 +93,7 @@ export async function POST(req: Request) {
     const backstory = typeof raw.backstory === "string" ? raw.backstory : "";
     const appearance = typeof raw.appearance === "string" ? raw.appearance : "";
     const moves = normalizeMoves(raw.moves, 1);
+    const passive = assignPassive(stats);
 
     // Step 2: Generate image using the AI-written appearance
     const imageResult = await openai.images.generate({
@@ -151,6 +153,7 @@ export async function POST(req: Request) {
         backstory,
         appearance,
         moves,
+        passive,
         stage: 1,
         evo_threshold_2,
         evo_threshold_3,

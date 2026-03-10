@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { supabase } from '@/lib/supabase';
 import { normalizeStats } from '@/lib/normalize-stats';
 import { normalizeMoves } from '@/lib/normalize-moves';
+import { assignPassive } from '@/lib/passive-abilities';
 import type { Move } from '@/lib/types';
 
 const openai = new OpenAI();
@@ -40,7 +41,7 @@ const EVO_STATS_PROMPT = (
   currentMoves: Move[],
   currentAppearance: string,
 ) =>
-  `You are a creature designer. Generate evolved stats, appearance, Pokedex entry, and two upgraded battle moves for a stage ${stage} monster named "${name}".
+  `You are a creature designer. Generate evolved stats, appearance, Pokedex entry, and ${stage >= 3 ? 'three' : 'two'} upgraded battle moves for a stage ${stage} monster named "${name}".
 ${currentAppearance ? `Current appearance (stage ${stage - 1}): "${currentAppearance}"` : ''}
 ${currentMoves.length > 0 ? `Current moves: ${currentMoves.map((m) => `${m.name} (${m.effect}, ${(m as Move & { category?: string }).category || 'physical'})`).join(', ')}.` : ''}
 Return ONLY a JSON object with these fields:
@@ -48,8 +49,9 @@ Return ONLY a JSON object with these fields:
   "hp": number, "attack": number, "defense": number, "sp_attack": number, "speed": number,
   "backstory": string,
   "appearance": string,
-  "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }]
+  "moves": [${stage >= 3 ? '{ move1 }, { move2 }, { move3 — a NEW third move with a DIFFERENT effect type }' : '{ move1 }, { move2 }'}]
 }
+Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }
 
 STATS: Integers 30-${stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
 
@@ -63,8 +65,8 @@ ${stage === 2 ? '  - What was a small decorative trait is now a functional, eye-
 - 1-2 vivid sentences. Mention the specific colors from the current appearance by name.
 
 MOVES: Evolve the current moves into stronger thematic versions. The move names should reflect the creature's growing power and its signature feature.
-${stage === 2 ? '- Moves should feel faster, sharper, more confident — the creature is coming into its own.' : '- Moves should feel devastating, masterful — the creature has fully mastered its abilities.'}
-Keep the same effect types as the current moves. The two moves MUST have DIFFERENT effect types.
+${stage === 2 ? '- Moves should feel faster, sharper, more confident — the creature is coming into its own.' : '- Moves should feel devastating, masterful — the creature has fully mastered its abilities.\n- Stage 3 gets a THIRD move! Add a new move with a different effect type from the first two. This represents the creature unlocking a new ability at its apex form.'}
+Keep the same effect types as the current moves for the first two. All moves MUST have DIFFERENT effect types.
 Effect types:
 - "strike": Reliable damage. Accuracy 0.85-1.0. Melee contact moves should be 1.0, ranged projectile moves (blasts, beams, thrown objects) should be lower.
 - "guard": Defensive, reduces incoming damage. Always accuracy 1.0.
@@ -163,6 +165,7 @@ export async function POST(req: Request) {
       typeof raw.backstory === 'string' ? raw.backstory : monster.backstory;
     const appearance = typeof raw.appearance === 'string' ? raw.appearance : '';
     const moves = normalizeMoves(raw.moves, toStage);
+    const passive = assignPassive(stats);
 
     console.log('Evolution stats debug:', {
       monsterName: monster.name,
@@ -245,6 +248,7 @@ export async function POST(req: Request) {
       backstory: monster.backstory,
       appearance: monster.appearance ?? '',
       moves: Array.isArray(monster.moves) ? monster.moves : [],
+      passive: monster.passive ?? null,
     };
 
     // Build update payload - only include evolution_history if column exists
@@ -258,6 +262,7 @@ export async function POST(req: Request) {
       backstory,
       appearance,
       moves,
+      passive,
       stage: toStage,
     };
 

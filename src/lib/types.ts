@@ -8,7 +8,17 @@ export interface Move {
   power: number;
   cooldown: number;
   accuracy: number; // 0.0 - 1.0, chance to hit (before dodge)
+  priority?: boolean; // if true, this move always goes first regardless of speed
 }
+
+/** Passive abilities assigned to monsters */
+export type PassiveAbility =
+  | "thick_skin"    // -15% incoming damage
+  | "quick_feet"    // +15% dodge chance
+  | "vampiric"      // heal 10% of damage dealt on every attack
+  | "fierce"        // +20% damage when HP < 33%
+  | "steady"        // immune to stun
+  | "reckless";     // rush moves gain +25% power but no extra accuracy penalty
 
 export interface StageSnapshot {
   stage: number;
@@ -21,6 +31,7 @@ export interface StageSnapshot {
   backstory: string;
   appearance: string;
   moves: Move[];
+  passive?: PassiveAbility;
 }
 
 export interface Monster {
@@ -35,6 +46,7 @@ export interface Monster {
   backstory: string;
   appearance: string;
   moves: Move[];
+  passive?: PassiveAbility;
   stage: number;
   evolution_history: StageSnapshot[];
   evo_threshold_2: number | null;
