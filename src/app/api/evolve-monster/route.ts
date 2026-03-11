@@ -14,7 +14,7 @@ const STAGE_CONFIG = {
 
 const STAGE_DESCRIPTORS: Record<number, string> = {
   2: 'Mid-evolution adolescent form. Leaner and more agile than its baby form. Its signature feature from stage 1 has grown more prominent and functional — what was once a small trait is now a defining part of its silhouette. More confident stance, sharper eyes, clearly faster and more capable.',
-  3: "Final apex form. The signature feature now dominates the design — it has become the creature's most prominent and defining trait. Powerful, commanding presence. The body has matured fully: taller, stronger, and confident. The creature's identity IS its evolved feature.",
+  3: "Final apex form. The signature feature now dominates the design — it has become the creature's primary weapon or defining trait. Powerful, commanding presence. The body has matured fully: taller, stronger, battle-ready. The creature's identity IS its evolved feature.",
 };
 
 const EVO_IMAGE_PROMPT = (
@@ -23,24 +23,23 @@ const EVO_IMAGE_PROMPT = (
   appearance: string,
   previousAppearance: string,
 ) =>
-  `A cute, friendly 16-bit SNES-style pixel art creature for a children's monster-collecting game, named "${name}".
+  `A 16-bit SNES-style pixel art monster named "${name}".
 Previous form (stage ${stage - 1}): "${previousAppearance}"
 Evolved form (stage ${stage}): ${appearance || STAGE_DESCRIPTORS[stage]}
 EVOLUTION DESIGN RULES (like Treecko → Grovyle → Sceptile):
 - SAME color palette as the previous form. Do NOT change colors.
-- The signature feature from stage ${stage - 1} must GROW and become more prominent — ${stage === 2 ? 'what was a small hint becomes a functional trait' : "the trait now dominates the design and IS the creature's identity"}.
+- The signature feature from stage ${stage - 1} must GROW and become more prominent — ${stage === 2 ? 'what was a small hint becomes a functional trait' : "the trait now dominates the design and IS the creature's identity/weapon"}.
 - Same body type, ${stage === 2 ? 'leaner and more agile' : 'taller, stronger, and more powerful'}.
 - This must look like the SAME creature grown up, not a different creature.
-- The creature should look appealing and kid-friendly, like a Pokemon sprite.
 Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
 
-/** Stripped-down fallback prompt if the detailed one gets moderation-blocked */
+/** Stripped-down fallback prompt without GPT appearance text that may have triggered moderation */
 const EVO_IMAGE_FALLBACK_PROMPT = (
   name: string,
   stage: number,
 ) =>
-  `A cute, friendly 16-bit SNES-style pixel art creature for a children's monster-collecting game. This is the stage ${stage} evolved form of "${name}". ${STAGE_DESCRIPTORS[stage]}
-Kid-friendly Pokemon-style sprite. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
+  `A 16-bit SNES-style pixel art monster named "${name}". This is the stage ${stage} evolved form. ${STAGE_DESCRIPTORS[stage]}
+Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
 
 const EVO_STATS_PROMPT = (
   name: string,
@@ -64,7 +63,7 @@ STATS: Integers 30-${stage === 2 ? 120 : 140}. Distribute exactly ${budget} poin
 
 BACKSTORY: Write a Pokedex-style field observation about the evolved form — 1-2 sentences about new abilities, changed behavior, or ecological role. NOT an origin story. Think nature documentary. The backstory should reflect how the creature's signature feature has developed.
 
-APPEARANCE: Describe how the creature has evolved visually. Keep descriptions kid-friendly and appealing (like Pokemon). Follow these rules inspired by how real Pokemon evolve (e.g. Treecko → Grovyle → Sceptile):
+APPEARANCE: Describe how the creature has evolved visually. Follow these rules inspired by how real Pokemon evolve (e.g. Treecko → Grovyle → Sceptile):
 - SAME exact color palette as the current appearance. Do NOT change or add colors.
 - The creature's signature/distinctive feature from stage ${stage - 1} must GROW and become more prominent:
 ${stage === 2 ? '  - What was a small decorative trait is now a functional, eye-catching feature. The body is leaner and more agile.' : "  - The feature now DOMINATES the design — it IS the creature's identity and primary weapon/tool. The body is fully mature, powerful, and commanding."}
