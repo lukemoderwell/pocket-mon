@@ -205,9 +205,16 @@ export async function POST(req: Request) {
         quality: 'medium',
       });
     } catch (imgErr: unknown) {
-      const code = (imgErr as { code?: string })?.code;
-      if (code === 'moderation_blocked') {
-        console.warn('Image moderation blocked, retrying with simplified prompt');
+      const err = imgErr as { code?: string; status?: number; error?: unknown; message?: string };
+      console.error('Image generation failed:', {
+        code: err.code,
+        status: err.status,
+        message: err.message,
+        error: err.error,
+        prompt: EVO_IMAGE_PROMPT(monster.name, toStage, appearance, monster.appearance ?? ''),
+      });
+      if (err.code === 'moderation_blocked') {
+        console.warn('Retrying with simplified prompt');
         imageResult = await openai.images.generate({
           model: 'gpt-image-1',
           prompt: `A 16-bit SNES-style pixel art creature named "${monster.name}". Stage ${toStage} evolved form. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`,
