@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { runBattle, type BattleRound } from "@/lib/battle-engine";
 import { HealthBar } from "@/components/health-bar";
 import { RetroButton } from "@/components/retro-button";
-import type { Monster } from "@/lib/types";
+import { PASSIVE_NAMES } from "@/lib/passive-abilities";
+import type { Monster, PassiveAbility } from "@/lib/types";
 
 type FightPhase = "intro" | "fighting" | "finished";
 
@@ -51,7 +52,7 @@ export function MatchFight({
   // Animation state
   const [turnPhase, setTurnPhase] = useState<TurnPhase>("idle");
   const [activeAttacker, setActiveAttacker] = useState<0 | 1 | null>(null);
-  const [damageNumber, setDamageNumber] = useState<{ value: number; target: 0 | 1 } | null>(null);
+  const [damageNumber, setDamageNumber] = useState<{ value: number; target: 0 | 1; critical: boolean } | null>(null);
   const [healNumber, setHealNumber] = useState<{ value: number; target: 0 | 1 } | null>(null);
   const [effectCaption, setEffectCaption] = useState<string | null>(null);
   const [currentCaption, setCurrentCaption] = useState<string | null>(null);
@@ -112,7 +113,7 @@ export function MatchFight({
     // Phase 2: Impact (after 200ms, lasts 300ms)
     timers.push(setTimeout(() => {
       setTurnPhase("impact");
-      if (round.moveEffect === "rush") setScreenShake(true);
+      if (round.moveEffect === "rush" || round.critical) setScreenShake(true);
 
       // Update HP on impact
       if (hitTarget === 0) setHp1(round.defenderHp);
@@ -123,7 +124,7 @@ export function MatchFight({
     timers.push(setTimeout(() => {
       setScreenShake(false);
       setTurnPhase("damage");
-      setDamageNumber({ value: round.damage, target: hitTarget as 0 | 1 });
+      setDamageNumber({ value: round.damage, target: hitTarget as 0 | 1, critical: round.critical });
 
       if (round.healAmount > 0) {
         setHealNumber({ value: round.healAmount, target: attackerSide as 0 | 1 });
@@ -135,11 +136,18 @@ export function MatchFight({
       setDamageNumber(null);
       setHealNumber(null);
 
+      const captions: string[] = [];
+      if (round.critical) captions.push("Critical hit!");
       if (round.stunned) {
-        setEffectCaption("Stunned!");
+        captions.push("Stunned!");
       } else if (EFFECT_CAPTIONS[round.moveEffect]) {
-        setEffectCaption(EFFECT_CAPTIONS[round.moveEffect]);
+        captions.push(EFFECT_CAPTIONS[round.moveEffect]);
       }
+      if (round.passiveTriggered) {
+        const name = PASSIVE_NAMES[round.passiveTriggered as PassiveAbility] ?? round.passiveTriggered;
+        captions.push(`${name} activated!`);
+      }
+      if (captions.length > 0) setEffectCaption(captions.join(" "));
       setTurnPhase("effect");
     }, 700));
 
@@ -241,13 +249,13 @@ export function MatchFight({
               {damageNumber && damageNumber.target === 1 && (
                 <motion.div
                   key="dmg-top"
-                  initial={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 1, y: 0, scale: damageNumber.critical ? 1.4 : 1 }}
                   animate={{ opacity: 0, y: -32 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.5 }}
-                  className="absolute -top-2 left-1/2 -translate-x-1/2 font-retro text-sm text-retro-accent font-bold pointer-events-none"
+                  className={`absolute -top-2 left-1/2 -translate-x-1/2 font-retro font-bold pointer-events-none ${damageNumber.critical ? "text-base text-retro-gold" : "text-sm text-retro-accent"}`}
                 >
-                  -{damageNumber.value}
+                  {damageNumber.critical && "CRIT "}-{damageNumber.value}
                 </motion.div>
               )}
               {healNumber && healNumber.target === 1 && (
@@ -379,13 +387,13 @@ export function MatchFight({
               {damageNumber && damageNumber.target === 0 && (
                 <motion.div
                   key="dmg-bottom"
-                  initial={{ opacity: 1, y: 0 }}
+                  initial={{ opacity: 1, y: 0, scale: damageNumber.critical ? 1.4 : 1 }}
                   animate={{ opacity: 0, y: -32 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.5 }}
-                  className="absolute -top-2 left-1/2 -translate-x-1/2 font-retro text-sm text-retro-accent font-bold pointer-events-none"
+                  className={`absolute -top-2 left-1/2 -translate-x-1/2 font-retro font-bold pointer-events-none ${damageNumber.critical ? "text-base text-retro-gold" : "text-sm text-retro-accent"}`}
                 >
-                  -{damageNumber.value}
+                  {damageNumber.critical && "CRIT "}-{damageNumber.value}
                 </motion.div>
               )}
               {healNumber && healNumber.target === 0 && (

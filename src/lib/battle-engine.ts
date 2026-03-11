@@ -1,4 +1,4 @@
-import type { Monster, Move } from './types';
+import type { Monster, Move, PassiveAbility } from './types';
 import { getDefaultMoves } from './normalize-moves';
 
 export interface BattleRound {
@@ -13,7 +13,9 @@ export interface BattleRound {
   healAmount: number;
   stunned: boolean;
   wasStunned: boolean;
-  missed: boolean; // true if attack missed (accuracy + dodge)
+  missed: boolean;
+  critical: boolean; // true if this hit was a critical hit
+  passiveTriggered: string | null; // passive ability name that activated, if any
 }
 
 export interface BattleResult {
@@ -27,12 +29,14 @@ interface FighterState {
   monster: Monster;
   hp: number;
   moves: Move[];
-  cooldowns: [number, number]; // cooldown remaining for move 0 and 1
-  defenseModifier: number; // 1.0 = normal, 0.6 = guarded, 1.25 = exposed
+  cooldowns: number[]; // cooldown remaining per move slot (2 or 3 entries)
+  defenseModifier: number; // 1.0 = normal, 0.3 = guarded, 1.25 = exposed
+  guardHitsLeft: number; // how many incoming hits the guard buff absorbs (0 = no guard)
   stunned: boolean; // skip next turn
+  passive: PassiveAbility | null;
 }
 
-/** Struggle: fallback when both moves are on cooldown */
+/** Struggle: fallback when all moves are on cooldown */
 const STRUGGLE: Move = {
   name: 'Struggle',
   effect: 'strike',
@@ -42,8 +46,42 @@ const STRUGGLE: Move = {
   accuracy: 1.0,
 };
 
+const CRIT_CHANCE = 0.12; // 12% base crit chance
+const CRIT_MULTIPLIER = 1.5;
+
+/**
+ * Estimate damage a move would deal (average, ignoring variance/crits).
+ */
+function estimateDamage(
+  attacker: FighterState,
+  defender: FighterState,
+  move: Move,
+): number {
+  const category = move.category || 'physical';
+  const atkStat =
+    category === 'special'
+      ? (attacker.monster.sp_attack ?? attacker.monster.attack)
+      : attacker.monster.attack;
+  const raw = Math.max(1, atkStat - Math.floor(defender.monster.defense * 0.6));
+  let power = move.power;
+  // Account for reckless passive on rush moves
+  if (attacker.passive === 'reckless' && move.effect === 'rush') {
+    power *= 1.25;
+  }
+  return Math.max(1, Math.round(raw * power * defender.defenseModifier));
+}
+
 /**
  * Select which move to use based on HP ratio, cooldowns, and game state.
+ *
+ * Priority:
+ * 1. If we can likely finish off the opponent → pick the best killing blow
+ * 2. Opponent is guarded → prefer stun/drain (don't waste big hits into a wall)
+ * 3. Healthy + opponent exposed → rush for big damage
+ * 4. Healthy → stun for crowd control
+ * 5. Hurt but opponent is also hurt → drain to sustain while dealing damage
+ * 6. Taking heavy damage and NOT close to killing → guard to weather the storm
+ * 7. Default → highest power available
  */
 function selectMove(
   fighter: FighterState,
@@ -56,39 +94,66 @@ function selectMove(
     }
   }
 
-  // Both on cooldown → Struggle
+  // All on cooldown → Struggle
   if (available.length === 0) {
     return { move: STRUGGLE, moveIndex: -1 };
+  }
+
+  // Only one option → use it
+  if (available.length === 1) {
+    return { move: available[0].move, moveIndex: available[0].index };
   }
 
   const hpRatio = fighter.hp / fighter.monster.hp;
   const opponentHpRatio = opponent.hp / opponent.monster.hp;
 
-  // Low HP: prefer guard to survive
-  if (hpRatio < 0.3) {
-    const guard = available.find((m) => m.move.effect === 'guard');
-    if (guard) return { move: guard.move, moveIndex: guard.index };
+  const find = (effect: string) =>
+    available.find((m) => m.move.effect === effect);
+
+  // --- PRIORITY 1: Finish them off ---
+  const killShots = available.filter(
+    (m) => estimateDamage(fighter, opponent, m.move) >= opponent.hp,
+  );
+  if (killShots.length > 0) {
+    killShots.sort(
+      (a, b) => (b.move.accuracy ?? 1) - (a.move.accuracy ?? 1),
+    );
+    return { move: killShots[0].move, moveIndex: killShots[0].index };
   }
 
-  // Under half HP: prefer drain to sustain
-  if (hpRatio < 0.5) {
-    const drain = available.find((m) => m.move.effect === 'drain');
+  // --- PRIORITY 2: Opponent is heavily guarded → don't waste big moves ---
+  if (opponent.defenseModifier <= 0.5) {
+    const stun = find('stun');
+    if (stun) return { move: stun.move, moveIndex: stun.index };
+    const drain = find('drain');
     if (drain) return { move: drain.move, moveIndex: drain.index };
   }
 
-  // Healthy + opponent exposed: prefer rush for big damage
-  if (hpRatio > 0.7 && opponent.defenseModifier >= 1.0) {
-    const rush = available.find((m) => m.move.effect === 'rush');
+  // --- PRIORITY 3: Healthy + opponent exposed → rush for big damage ---
+  if (hpRatio > 0.6 && opponent.defenseModifier >= 1.0) {
+    const rush = find('rush');
     if (rush) return { move: rush.move, moveIndex: rush.index };
   }
 
-  // Healthy: try stun to control the fight
-  if (hpRatio > 0.5) {
-    const stun = available.find((m) => m.move.effect === 'stun');
+  // --- PRIORITY 4: Healthy → stun for crowd control ---
+  if (hpRatio > 0.6) {
+    const stun = find('stun');
     if (stun) return { move: stun.move, moveIndex: stun.index };
   }
 
-  // Default: pick highest power available
+  // --- PRIORITY 5: Hurt but opponent is also hurting → drain to sustain ---
+  if (hpRatio < 0.6 && opponentHpRatio < 0.6) {
+    const drain = find('drain');
+    if (drain) return { move: drain.move, moveIndex: drain.index };
+  }
+
+  // --- PRIORITY 6: Taking a beating and can't kill soon → guard up ---
+  if (hpRatio < 0.35 && opponentHpRatio > 0.3) {
+    const guard = find('guard');
+    if (guard) return { move: guard.move, moveIndex: guard.index };
+  }
+
+  // --- PRIORITY 7: Default → pick highest power available ---
   available.sort((a, b) => b.move.power - a.move.power);
   return { move: available[0].move, moveIndex: available[0].index };
 }
@@ -99,29 +164,32 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       ? m.moves
       : getDefaultMoves(m.stage);
 
-  // Speed determines turn order
+  const getPassive = (m: Monster): PassiveAbility | null =>
+    m.passive ?? null;
+
+  // Speed determines default turn order
   const [first, second] =
     monster1.speed >= monster2.speed
       ? [monster1, monster2]
       : [monster2, monster1];
 
+  const makeFighter = (m: Monster): FighterState => {
+    const moves = getMoves(m);
+    return {
+      monster: m,
+      hp: m.hp,
+      moves,
+      cooldowns: moves.map(() => 0),
+      defenseModifier: 1.0,
+      guardHitsLeft: 0,
+      stunned: false,
+      passive: getPassive(m),
+    };
+  };
+
   const fighters: [FighterState, FighterState] = [
-    {
-      monster: first,
-      hp: first.hp,
-      moves: getMoves(first),
-      cooldowns: [0, 0],
-      defenseModifier: 1.0,
-      stunned: false,
-    },
-    {
-      monster: second,
-      hp: second.hp,
-      moves: getMoves(second),
-      cooldowns: [0, 0],
-      defenseModifier: 1.0,
-      stunned: false,
-    },
+    makeFighter(first),
+    makeFighter(second),
   ];
 
   const rounds: BattleRound[] = [];
@@ -137,24 +205,53 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     attacker: FighterState,
     defender: FighterState,
     move: Move,
-  ): number => {
+  ): { damage: number; critical: boolean; passiveTriggered: string | null } => {
     const atkStat = getAttackStat(attacker, move);
     const raw = Math.max(
       1,
       atkStat - Math.floor(defender.monster.defense * 0.6),
     );
     const variance = 0.8 + Math.random() * 0.4;
-    return Math.max(
+
+    let power = move.power;
+    let passiveTriggered: string | null = null;
+
+    // Passive: reckless — rush moves gain +25% power
+    if (attacker.passive === 'reckless' && move.effect === 'rush') {
+      power *= 1.25;
+      passiveTriggered = 'reckless';
+    }
+
+    // Passive: fierce — +20% damage when HP < 33%
+    const hpRatio = attacker.hp / attacker.monster.hp;
+    if (attacker.passive === 'fierce' && hpRatio < 0.33) {
+      power *= 1.2;
+      passiveTriggered = 'fierce';
+    }
+
+    let defMod = defender.defenseModifier;
+
+    // Passive: thick_skin — defender takes 15% less damage
+    if (defender.passive === 'thick_skin') {
+      defMod *= 0.85;
+      if (!passiveTriggered) passiveTriggered = 'thick_skin';
+    }
+
+    // Critical hit check (12% chance, 1.5x damage)
+    const critical = Math.random() < CRIT_CHANCE;
+    const critMult = critical ? CRIT_MULTIPLIER : 1.0;
+
+    const damage = Math.max(
       1,
-      Math.round(raw * variance * move.power * defender.defenseModifier),
+      Math.round(raw * variance * power * defMod * critMult),
     );
+
+    return { damage, critical, passiveTriggered };
   };
 
   /**
-   * Check if an attack hits, factoring in move accuracy and
-   * speed-based dodge chance. Faster defenders are harder to hit.
-   * Dodge chance = (defender.speed - attacker.speed) / 300, clamped to [0, 0.25].
-   * Final hit chance = move.accuracy * (1 - dodgeChance).
+   * Check if an attack hits. Factors in move accuracy, speed-based dodge,
+   * and the quick_feet passive.
    */
   const doesHit = (
     attacker: FighterState,
@@ -163,7 +260,13 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
   ): boolean => {
     const moveAccuracy = move.accuracy ?? 1.0;
     const speedDiff = defender.monster.speed - attacker.monster.speed;
-    const dodgeChance = Math.min(0.25, Math.max(0, speedDiff / 300));
+    let dodgeChance = Math.min(0.25, Math.max(0, speedDiff / 300));
+
+    // Passive: quick_feet — +15% dodge chance
+    if (defender.passive === 'quick_feet') {
+      dodgeChance = Math.min(0.4, dodgeChance + 0.15);
+    }
+
     const hitChance = moveAccuracy * (1 - dodgeChance);
     return Math.random() < hitChance;
   };
@@ -173,24 +276,31 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     const attacker = fighters[attackerIdx];
     const defender = fighters[defenderIdx];
 
-    // Check if stunned
+    // Check if stunned (passive: steady makes you immune)
     if (attacker.stunned) {
-      attacker.stunned = false;
-      rounds.push({
-        attacker: attacker.monster.name,
-        defender: defender.monster.name,
-        damage: 0,
-        attackerHp: attacker.hp,
-        defenderHp: defender.hp,
-        moveName: 'Stunned',
-        moveEffect: 'stun',
-        moveCategory: 'physical',
-        healAmount: 0,
-        stunned: false,
-        wasStunned: true,
-        missed: false,
-      });
-      return;
+      if (attacker.passive === 'steady') {
+        attacker.stunned = false;
+        // Steady monster shrugs off stun and acts normally
+      } else {
+        attacker.stunned = false;
+        rounds.push({
+          attacker: attacker.monster.name,
+          defender: defender.monster.name,
+          damage: 0,
+          attackerHp: attacker.hp,
+          defenderHp: defender.hp,
+          moveName: 'Stunned',
+          moveEffect: 'stun',
+          moveCategory: 'physical',
+          healAmount: 0,
+          stunned: false,
+          wasStunned: true,
+          missed: false,
+          critical: false,
+          passiveTriggered: null,
+        });
+        return;
+      }
     }
 
     const { move, moveIndex } = selectMove(attacker, defender);
@@ -219,31 +329,48 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         stunned: false,
         wasStunned: false,
         missed: true,
+        critical: false,
+        passiveTriggered: defender.passive === 'quick_feet' ? 'quick_feet' : null,
       });
       return;
     }
 
-    const damage = calcDamage(attacker, defender, move);
+    const { damage, critical, passiveTriggered } = calcDamage(attacker, defender, move);
     let healAmount = 0;
 
     defender.hp = Math.max(0, defender.hp - damage);
 
-    // After being hit, defender's modifier resets to normal
-    defender.defenseModifier = 1.0;
+    // After being hit, consume guard if active; otherwise reset modifier
+    if (defender.guardHitsLeft > 0) {
+      defender.guardHitsLeft -= 1;
+      if (defender.guardHitsLeft === 0) {
+        defender.defenseModifier = 1.0;
+      }
+    } else {
+      defender.defenseModifier = 1.0;
+    }
 
     // Apply post-attack effects
     if (move.effect === 'guard') {
-      attacker.defenseModifier = 0.6; // Take 40% less on next hit
+      attacker.defenseModifier = 0.3; // Take 70% less damage for 2 incoming hits
+      attacker.guardHitsLeft = 2;
     } else if (move.effect === 'rush') {
       attacker.defenseModifier = 1.25; // Take 25% more on next hit
     } else if (move.effect === 'drain') {
       healAmount = Math.round(damage * 0.6);
       attacker.hp = Math.min(attacker.monster.hp, attacker.hp + healAmount);
     } else if (move.effect === 'stun') {
-      // 40% chance to stun opponent
-      if (Math.random() < 0.4) {
+      // 40% chance to stun opponent (unless they have steady passive)
+      if (Math.random() < 0.4 && defender.passive !== 'steady') {
         defender.stunned = true;
       }
+    }
+
+    // Passive: vampiric — heal 10% of damage dealt on every attack
+    if (attacker.passive === 'vampiric' && move.effect !== 'drain') {
+      const vampHeal = Math.max(1, Math.round(damage * 0.1));
+      attacker.hp = Math.min(attacker.monster.hp, attacker.hp + vampHeal);
+      healAmount += vampHeal;
     }
 
     rounds.push({
@@ -259,21 +386,39 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       stunned: defender.stunned,
       wasStunned: false,
       missed: false,
+      critical,
+      passiveTriggered,
     });
   };
 
   const tickCooldowns = (fighter: FighterState) => {
-    fighter.cooldowns[0] = Math.max(0, fighter.cooldowns[0] - 1);
-    fighter.cooldowns[1] = Math.max(0, fighter.cooldowns[1] - 1);
+    for (let i = 0; i < fighter.cooldowns.length; i++) {
+      fighter.cooldowns[i] = Math.max(0, fighter.cooldowns[i] - 1);
+    }
   };
 
   // Battle loop (max 20 rounds to prevent infinite)
   for (let i = 0; i < 20; i++) {
-    executeTurn(0);
-    if (fighters[1].hp <= 0) break;
+    // Determine turn order for this round — priority moves override speed
+    const move0 = selectMove(fighters[0], fighters[1]);
+    const move1 = selectMove(fighters[1], fighters[0]);
+    const p0 = move0.move.priority && !fighters[0].stunned;
+    const p1 = move1.move.priority && !fighters[1].stunned;
 
-    executeTurn(1);
-    if (fighters[0].hp <= 0) break;
+    // If only one side has priority, they go first. Otherwise default order.
+    let firstIdx: 0 | 1 = 0;
+    let secondIdx: 0 | 1 = 1;
+    if (p1 && !p0) {
+      firstIdx = 1;
+      secondIdx = 0;
+    }
+    // If both have priority or neither, keep default speed-based order
+
+    executeTurn(firstIdx);
+    if (fighters[secondIdx].hp <= 0) break;
+
+    executeTurn(secondIdx);
+    if (fighters[firstIdx].hp <= 0) break;
 
     // Tick cooldowns at end of each full round
     tickCooldowns(fighters[0]);
