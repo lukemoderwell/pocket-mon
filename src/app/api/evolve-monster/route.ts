@@ -15,7 +15,7 @@ const STAGE_CONFIG = {
 
 const STAGE_DESCRIPTORS: Record<number, string> = {
   2: 'Mid-evolution adolescent form. Leaner and more agile than its baby form. Its signature feature from stage 1 has grown more prominent and functional — what was once a small trait is now a defining part of its silhouette. More confident stance, sharper eyes, clearly faster and more capable.',
-  3: "Final apex form. The signature feature now dominates the design — it has become the creature's primary weapon or defining trait. Powerful, commanding presence. The body has matured fully: taller, stronger, battle-ready. The creature's identity IS its evolved feature.",
+  3: "Final apex form. The signature feature now dominates the design — it has become the creature's primary signature ability or defining trait. Powerful, commanding presence. The body has matured fully: taller, stronger, battle-ready. The creature's identity IS its evolved feature.",
 };
 
 const EVO_IMAGE_PROMPT = (
@@ -29,7 +29,7 @@ Previous form (stage ${stage - 1}): "${previousAppearance}"
 Evolved form (stage ${stage}): ${appearance || STAGE_DESCRIPTORS[stage]}
 EVOLUTION DESIGN RULES (like Treecko → Grovyle → Sceptile):
 - SAME color palette as the previous form. Do NOT change colors.
-- The signature feature from stage ${stage - 1} must GROW and become more prominent — ${stage === 2 ? 'what was a small hint becomes a functional trait' : "the trait now dominates the design and IS the creature's identity/weapon"}.
+- The signature feature from stage ${stage - 1} must GROW and become more prominent — ${stage === 2 ? 'what was a small hint becomes a functional trait' : "the trait now dominates the design and IS the creature's identity and signature ability"}.
 - Same body type, ${stage === 2 ? 'leaner and more agile' : 'taller, stronger, and more powerful'}.
 - This must look like the SAME creature grown up, not a different creature.
 Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
@@ -68,7 +68,7 @@ BACKSTORY: Write a Pokedex-style field observation about the evolved form — 1-
 APPEARANCE: Describe how the creature has evolved visually. Follow these rules inspired by how real Pokemon evolve (e.g. Treecko → Grovyle → Sceptile):
 - SAME exact color palette as the current appearance. Do NOT change or add colors.
 - The creature's signature/distinctive feature from stage ${stage - 1} must GROW and become more prominent:
-${stage === 2 ? '  - What was a small decorative trait is now a functional, eye-catching feature. The body is leaner and more agile.' : "  - The feature now DOMINATES the design — it IS the creature's identity and primary weapon/tool. The body is fully mature, powerful, and commanding."}
+${stage === 2 ? '  - What was a small decorative trait is now a functional, eye-catching feature. The body is leaner and more agile.' : "  - The feature now DOMINATES the design — it IS the creature's identity and signature ability. The body is fully mature, powerful, and commanding."}
 - Same body type and proportions, just ${stage === 2 ? 'taller and sleeker' : 'larger, stronger, and more imposing'}.
 - 1-2 vivid sentences. Mention the specific colors from the current appearance by name.
 
@@ -197,9 +197,10 @@ export async function POST(req: Request) {
     });
 
     // Step 2: Generate image using the evolved appearance
-    let imageB64: string | undefined;
+    // Try the full prompt first; if moderation blocks it, retry with a minimal prompt
+    let imageResult;
     try {
-      const imageResult = await openai.images.generate({
+      imageResult = await openai.images.generate({
         model: 'gpt-image-1',
         prompt: EVO_IMAGE_PROMPT(
           monster.name,
@@ -211,24 +212,31 @@ export async function POST(req: Request) {
         size: '1024x1024',
         quality: 'medium',
       });
-      imageB64 = imageResult.data?.[0]?.b64_json;
-    } catch (imgError: unknown) {
-      // If moderation blocked the detailed prompt, retry with a generic fallback
-      const code = imgError instanceof Object && 'code' in imgError ? (imgError as { code: string }).code : '';
-      if (code === 'moderation_blocked') {
-        console.warn('Image moderation blocked, retrying with fallback prompt');
-        const fallbackResult = await openai.images.generate({
+    } catch (imgErr: unknown) {
+      const err = imgErr as { code?: string; status?: number; error?: unknown; message?: string };
+      console.error('Image generation failed:', {
+        code: err.code,
+        status: err.status,
+        message: err.message,
+        error: err.error,
+        prompt: EVO_IMAGE_PROMPT(monster.name, toStage, appearance, monster.appearance ?? ''),
+      });
+      if (err.code === 'moderation_blocked') {
+        console.warn('Retrying with simplified prompt');
+        imageResult = await openai.images.generate({
           model: 'gpt-image-1',
-          prompt: EVO_IMAGE_FALLBACK_PROMPT(monster.name, toStage),
+          prompt: `A 16-bit SNES-style pixel art creature named "${monster.name}". Stage ${toStage} evolved form. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`,
           n: 1,
           size: '1024x1024',
           quality: 'medium',
         });
-        imageB64 = fallbackResult.data?.[0]?.b64_json;
       } else {
-        throw imgError;
+        throw imgErr;
       }
     }
+
+    // Upload new image
+    const imageB64 = imageResult.data?.[0]?.b64_json;
     if (!imageB64) {
       return NextResponse.json(
         { error: 'Evolution image generation failed' },

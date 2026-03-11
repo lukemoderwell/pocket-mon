@@ -96,13 +96,38 @@ export async function POST(req: Request) {
     const passive = assignPassive(stats);
 
     // Step 2: Generate image using the AI-written appearance
-    const imageResult = await openai.images.generate({
-      model: "gpt-image-1",
-      prompt: IMAGE_PROMPT(name, appearance || `A small, cute baby creature with fantastical monster traits`),
-      n: 1,
-      size: "1024x1024",
-      quality: "medium",
-    });
+    // Try full prompt first; if moderation blocks it, retry with a minimal prompt
+    let imageResult;
+    try {
+      imageResult = await openai.images.generate({
+        model: "gpt-image-1",
+        prompt: IMAGE_PROMPT(name, appearance || `A small, cute baby creature with fantastical monster traits`),
+        n: 1,
+        size: "1024x1024",
+        quality: "medium",
+      });
+    } catch (imgErr: unknown) {
+      const err = imgErr as { code?: string; status?: number; error?: unknown; message?: string };
+      console.error("Image generation failed:", {
+        code: err.code,
+        status: err.status,
+        message: err.message,
+        error: err.error,
+        prompt: IMAGE_PROMPT(name, appearance || "A small, cute baby creature with fantastical monster traits"),
+      });
+      if (err.code === "moderation_blocked") {
+        console.warn("Retrying with simplified prompt");
+        imageResult = await openai.images.generate({
+          model: "gpt-image-1",
+          prompt: `A 16-bit SNES-style pixel art creature named "${name}". A small, cute baby creature with fantastical monster traits. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`,
+          n: 1,
+          size: "1024x1024",
+          quality: "medium",
+        });
+      } else {
+        throw imgErr;
+      }
+    }
 
     // Generate random evolution thresholds
     const evo_threshold_2 = Math.floor(Math.random() * 6) + 5;  // 5-10
