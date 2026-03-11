@@ -34,6 +34,14 @@ EVOLUTION DESIGN RULES (like Treecko → Grovyle → Sceptile):
 - This must look like the SAME creature grown up, not a different creature.
 Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
 
+/** Stripped-down fallback prompt without GPT appearance text that may have triggered moderation */
+const EVO_IMAGE_FALLBACK_PROMPT = (
+  name: string,
+  stage: number,
+) =>
+  `A 16-bit SNES-style pixel art monster named "${name}". This is the stage ${stage} evolved form. ${STAGE_DESCRIPTORS[stage]}
+Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
+
 const EVO_STATS_PROMPT = (
   name: string,
   stage: number,
