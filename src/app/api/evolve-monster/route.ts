@@ -34,6 +34,14 @@ EVOLUTION DESIGN RULES (like Treecko → Grovyle → Sceptile):
 - This must look like the SAME creature grown up, not a different creature.
 Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
 
+/** Stripped-down fallback prompt without GPT appearance text that may have triggered moderation */
+const EVO_IMAGE_FALLBACK_PROMPT = (
+  name: string,
+  stage: number,
+) =>
+  `A 16-bit SNES-style pixel art monster named "${name}". This is the stage ${stage} evolved form. ${STAGE_DESCRIPTORS[stage]}
+Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
+
 const EVO_STATS_PROMPT = (
   name: string,
   stage: number,
@@ -189,21 +197,38 @@ export async function POST(req: Request) {
     });
 
     // Step 2: Generate image using the evolved appearance
-    const imageResult = await openai.images.generate({
-      model: 'gpt-image-1',
-      prompt: EVO_IMAGE_PROMPT(
-        monster.name,
-        toStage,
-        appearance,
-        monster.appearance ?? '',
-      ),
-      n: 1,
-      size: '1024x1024',
-      quality: 'medium',
-    });
-
-    // Upload new image
-    const imageB64 = imageResult.data?.[0]?.b64_json;
+    let imageB64: string | undefined;
+    try {
+      const imageResult = await openai.images.generate({
+        model: 'gpt-image-1',
+        prompt: EVO_IMAGE_PROMPT(
+          monster.name,
+          toStage,
+          appearance,
+          monster.appearance ?? '',
+        ),
+        n: 1,
+        size: '1024x1024',
+        quality: 'medium',
+      });
+      imageB64 = imageResult.data?.[0]?.b64_json;
+    } catch (imgError: unknown) {
+      // If moderation blocked the detailed prompt, retry with a generic fallback
+      const code = imgError instanceof Object && 'code' in imgError ? (imgError as { code: string }).code : '';
+      if (code === 'moderation_blocked') {
+        console.warn('Image moderation blocked, retrying with fallback prompt');
+        const fallbackResult = await openai.images.generate({
+          model: 'gpt-image-1',
+          prompt: EVO_IMAGE_FALLBACK_PROMPT(monster.name, toStage),
+          n: 1,
+          size: '1024x1024',
+          quality: 'medium',
+        });
+        imageB64 = fallbackResult.data?.[0]?.b64_json;
+      } else {
+        throw imgError;
+      }
+    }
     if (!imageB64) {
       return NextResponse.json(
         { error: 'Evolution image generation failed' },
