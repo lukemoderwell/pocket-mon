@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { normalizeStats } from "@/lib/normalize-stats";
 import { normalizeMoves } from "@/lib/normalize-moves";
 import { assignPassive } from "@/lib/passive-abilities";
+import { sanitizeForImageGen } from "@/lib/sanitize-appearance";
 
 const openai = new OpenAI();
 
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
     // Step 2: Generate image using the AI-written appearance
     const imageResult = await openai.images.generate({
       model: "gpt-image-1",
-      prompt: IMAGE_PROMPT(name, appearance || `A small, cute baby creature with fantastical monster traits`),
+      prompt: IMAGE_PROMPT(name, sanitizeForImageGen(appearance) || `A small, cute baby creature with fantastical monster traits`),
       n: 1,
       size: "1024x1024",
       quality: "medium",
