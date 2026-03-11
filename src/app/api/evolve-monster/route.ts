@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase';
 import { normalizeStats } from '@/lib/normalize-stats';
 import { normalizeMoves } from '@/lib/normalize-moves';
 import { assignPassive } from '@/lib/passive-abilities';
-import { sanitizeForImageGen } from '@/lib/sanitize-appearance';
 import type { Move } from '@/lib/types';
 
 const openai = new OpenAI();
@@ -190,18 +189,36 @@ export async function POST(req: Request) {
     });
 
     // Step 2: Generate image using the evolved appearance
-    const imageResult = await openai.images.generate({
-      model: 'gpt-image-1',
-      prompt: EVO_IMAGE_PROMPT(
-        monster.name,
-        toStage,
-        sanitizeForImageGen(appearance),
-        sanitizeForImageGen(monster.appearance ?? ''),
-      ),
-      n: 1,
-      size: '1024x1024',
-      quality: 'medium',
-    });
+    // Try the full prompt first; if moderation blocks it, retry with a minimal prompt
+    let imageResult;
+    try {
+      imageResult = await openai.images.generate({
+        model: 'gpt-image-1',
+        prompt: EVO_IMAGE_PROMPT(
+          monster.name,
+          toStage,
+          appearance,
+          monster.appearance ?? '',
+        ),
+        n: 1,
+        size: '1024x1024',
+        quality: 'medium',
+      });
+    } catch (imgErr: unknown) {
+      const code = (imgErr as { code?: string })?.code;
+      if (code === 'moderation_blocked') {
+        console.warn('Image moderation blocked, retrying with simplified prompt');
+        imageResult = await openai.images.generate({
+          model: 'gpt-image-1',
+          prompt: `A 16-bit SNES-style pixel art creature named "${monster.name}". Stage ${toStage} evolved form. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`,
+          n: 1,
+          size: '1024x1024',
+          quality: 'medium',
+        });
+      } else {
+        throw imgErr;
+      }
+    }
 
     // Upload new image
     const imageB64 = imageResult.data?.[0]?.b64_json;
