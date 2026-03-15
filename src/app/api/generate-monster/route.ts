@@ -8,7 +8,7 @@ import { assignPassive } from "@/lib/passive-abilities";
 const openai = new OpenAI();
 
 const IMAGE_PROMPT = (name: string, appearance: string) =>
-  `A 16-bit SNES-style pixel art creature named "${name}". ${appearance}. Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette, friendly rounded proportions even if tough. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
+  `A 16-bit SNES-style pixel art creature named "${name}". ${appearance}. Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette, appealing proportions. This is a BABY stage 1 creature — it should look small, young, and cute with a compact body. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
 
 const STAT_BUDGET = 340;
 
@@ -31,6 +31,7 @@ Examples of the tone:
 - "It digs deep burrows to live in. When in danger, it rolls up its body to withstand attacks."
 
 APPEARANCE: A vivid 1-2 sentence visual description for a pixel artist. Focus on: one distinctive body feature, specific colors, personality expressed through posture/expression. Aim for a design that reads clearly as a small silhouette.
+IMPORTANT — vary the body type! Not every creature should be round or turtle-like. Choose from diverse body plans: bipedal humanoid, serpentine, avian, insectoid, quadruped, amorphous blob, floating/levitating, tall and lanky, stocky and squat, etc. The body type should match the creature's stat archetype (fast creatures are sleek, tanks are sturdy, etc.). This is a BABY stage 1 creature — it should look small, young, and compact. It will grow BIGGER and more imposing when it evolves.
 
 MOVES: Each move has a name (creative, thematic), an effect type, a category, and an accuracy value. The two moves MUST have DIFFERENT effect types.
 Effect types — pick TWO different ones from this list:

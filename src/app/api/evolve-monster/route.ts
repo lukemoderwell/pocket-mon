@@ -14,8 +14,8 @@ const STAGE_CONFIG = {
 } as const;
 
 const STAGE_DESCRIPTORS: Record<number, string> = {
-  2: 'Mid-evolution adolescent form. Leaner and more agile than its baby form. Its signature feature from stage 1 has grown more prominent and functional — what was once a small trait is now a defining part of its silhouette. More confident stance, sharper eyes, clearly faster and more capable.',
-  3: "Final apex form. The signature feature now dominates the design — it has become the creature's primary signature ability or defining trait. Powerful, commanding presence. The body has matured fully: taller, stronger, battle-ready. The creature's identity IS its evolved feature.",
+  2: 'Mid-evolution adolescent form. Noticeably bigger and sturdier than its baby form — it has grown taller and filled out. Its signature feature from stage 1 has grown more prominent and functional — what was once a small trait is now a defining part of its silhouette. More confident stance, sharper eyes, developing muscle or armor.',
+  3: "Final apex form. Massive and imposing compared to earlier stages — this creature has reached its full size and power. The signature feature now dominates the design — it has become the creature's primary weapon or defining trait. Powerful, commanding presence with a fully matured, battle-hardened body. The creature's identity IS its evolved feature.",
 };
 
 const EVO_IMAGE_PROMPT = (
@@ -30,7 +30,7 @@ Evolved form (stage ${stage}): ${appearance || STAGE_DESCRIPTORS[stage]}
 EVOLUTION DESIGN RULES (like Treecko → Grovyle → Sceptile):
 - SAME color palette as the previous form. Do NOT change colors.
 - The signature feature from stage ${stage - 1} must GROW and become more prominent — ${stage === 2 ? 'what was a small hint becomes a functional trait' : "the trait now dominates the design and IS the creature's identity and signature ability"}.
-- Same body type, ${stage === 2 ? 'leaner and more agile' : 'taller, stronger, and more powerful'}.
+- Same body type but BIGGER — ${stage === 2 ? 'noticeably taller and sturdier than the baby form, like an adolescent filling out' : 'massive and imposing at full maturity, like Venusaur compared to Bulbasaur'}.
 - This must look like the SAME creature grown up, not a different creature.
 Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
 
@@ -68,12 +68,12 @@ BACKSTORY: Write a Pokedex-style field observation about the evolved form — 1-
 APPEARANCE: Describe how the creature has evolved visually. Follow these rules inspired by how real Pokemon evolve (e.g. Treecko → Grovyle → Sceptile):
 - SAME exact color palette as the current appearance. Do NOT change or add colors.
 - The creature's signature/distinctive feature from stage ${stage - 1} must GROW and become more prominent:
-${stage === 2 ? '  - What was a small decorative trait is now a functional, eye-catching feature. The body is leaner and more agile.' : "  - The feature now DOMINATES the design — it IS the creature's identity and signature ability. The body is fully mature, powerful, and commanding."}
-- Same body type and proportions, just ${stage === 2 ? 'taller and sleeker' : 'larger, stronger, and more imposing'}.
+${stage === 2 ? '  - What was a small decorative trait is now a functional, eye-catching feature. The body has grown — taller, sturdier, more filled out. Think Ivysaur vs Bulbasaur: same creature but bigger and more developed.' : "  - The feature now DOMINATES the design — it IS the creature's identity and signature ability. The body is fully mature: massive, powerful, and commanding. Think Venusaur vs Ivysaur: much heavier and more imposing."}
+- Same body type but BIGGER and more substantial — ${stage === 2 ? 'an adolescent growing into its body, noticeably larger than the baby form' : 'a fully mature apex creature, thick, heavy, and battle-hardened'}.
 - 1-2 vivid sentences. Mention the specific colors from the current appearance by name.
 
 MOVES: Evolve the current moves into stronger thematic versions. The move names should reflect the creature's growing power and its signature feature.
-${stage === 2 ? '- Moves should feel faster, sharper, more confident — the creature is coming into its own.' : '- Moves should feel devastating, masterful — the creature has fully mastered its abilities.\n- Stage 3 gets a THIRD move! Add a new move with a different effect type from the first two. This represents the creature unlocking a new ability at its apex form.'}
+${stage === 2 ? '- Moves should feel stronger and more confident — the creature is growing into its power. Hits land harder, abilities are more controlled.' : '- Moves should feel devastating, overwhelming — the creature has reached full power and mastery.\n- Stage 3 gets a THIRD move! Add a new move with a different effect type from the first two. This represents the creature unlocking its ultimate ability at apex form.'}
 Keep the same effect types as the current moves for the first two. All moves MUST have DIFFERENT effect types.
 Effect types:
 - "strike": Reliable damage. Accuracy 0.85-1.0. Melee contact moves should be 1.0, ranged projectile moves (blasts, beams, thrown objects) should be lower.
