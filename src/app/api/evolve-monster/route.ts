@@ -14,8 +14,8 @@ const STAGE_CONFIG = {
 } as const;
 
 const STAGE_DESCRIPTORS: Record<number, string> = {
-  2: 'Mid-evolution adolescent form. Noticeably bigger and sturdier than its baby form — it has grown taller and filled out. Its signature feature from stage 1 has grown more prominent and functional — what was once a small trait is now a defining part of its silhouette. More confident stance, sharper eyes, developing muscle or armor.',
-  3: "Final apex form. Massive and imposing compared to earlier stages — this creature has reached its full size and power. The signature feature now dominates the design — it has become the creature's primary weapon or defining trait. Powerful, commanding presence with a fully matured, battle-hardened body. The creature's identity IS its evolved feature.",
+  2: 'Mid-evolution form. The creature has grown and matured — bigger, sturdier, more confident. Its signature feature has developed further. The evolution should feel like a natural progression driven by the creature\'s biology and behavior.',
+  3: 'Final apex form. The creature has reached full maturity and power. Its design reflects the culmination of its life story and ecological role. Imposing, commanding presence.',
 };
 
 const EVO_IMAGE_PROMPT = (
@@ -23,18 +23,15 @@ const EVO_IMAGE_PROMPT = (
   stage: number,
   appearance: string,
   previousAppearance: string,
-  bodyType: string | null,
 ) =>
   `A 16-bit SNES-style pixel art monster named "${name}".
 Previous form (stage ${stage - 1}): "${previousAppearance}"
-${bodyType ? `Body type: ${bodyType} (keep the same body plan)` : ''}
 Evolved form (stage ${stage}): ${appearance || STAGE_DESCRIPTORS[stage]}
-EVOLUTION DESIGN RULES (like Treecko → Grovyle → Sceptile):
-- SAME color palette as the previous form. Do NOT change colors.
-- The signature feature from stage ${stage - 1} must GROW and become more prominent — ${stage === 2 ? 'what was a small hint becomes a functional trait' : "the trait now dominates the design and IS the creature's identity and signature ability"}.
-- Same body type but BIGGER — ${stage === 2 ? 'noticeably taller and sturdier than the baby form, like an adolescent filling out' : 'massive and imposing at full maturity, like Venusaur compared to Bulbasaur'}.
-- The creature should fill about ${stage === 2 ? '60%' : '85%'} of the frame (the previous form filled ${stage === 2 ? '40%' : '60%'}).
-- This must look like the SAME creature grown up, not a different creature.
+EVOLUTION DESIGN GUIDELINES:
+- Keep the SAME color palette. Do NOT change the core colors.
+- The creature should fill about ${stage === 2 ? '60%' : '85%'} of the frame (previous form filled ${stage === 2 ? '40%' : '60%'}).
+- The evolution should feel driven by the creature's story and biology — let the appearance description guide you.
+- The creature should be recognizable as the same species through color and its evolved signature feature.
 Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
 
 /** Stripped-down fallback prompt without GPT appearance text that may have triggered moderation */
@@ -53,11 +50,13 @@ const EVO_STATS_PROMPT = (
   currentAppearance: string,
   bodyType: string | null,
   currentWeight: number | null,
+  currentBackstory: string,
 ) =>
   `You are a creature designer. Generate evolved stats, appearance, Pokedex entry, and ${stage >= 3 ? 'three' : 'two'} upgraded battle moves for a stage ${stage} monster named "${name}".
 ${currentAppearance ? `Current appearance (stage ${stage - 1}): "${currentAppearance}"` : ''}
-${bodyType ? `Body type: ${bodyType} (maintain this body plan through evolution)` : ''}
-${currentWeight ? `Current weight: ${currentWeight} kg (the evolved form should be noticeably heavier)` : ''}
+${currentBackstory ? `Current backstory: "${currentBackstory}"` : ''}
+${bodyType ? `Previous body type: ${bodyType}` : ''}
+${currentWeight ? `Current weight: ${currentWeight} kg` : ''}
 ${currentMoves.length > 0 ? `Current moves: ${currentMoves.map((m) => `${m.name} (${m.effect}, ${(m as Move & { category?: string }).category || 'physical'})`).join(', ')}.` : ''}
 Return ONLY a JSON object with these fields:
 {
@@ -69,18 +68,23 @@ Return ONLY a JSON object with these fields:
 }
 Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }
 
-WEIGHT: The evolved form's weight in kg. ${stage === 2 ? 'Stage 2 creatures are typically 1.5-3x heavier than their baby form as they grow.' : 'Stage 3 creatures are typically 2-4x heavier than stage 2, reflecting full maturity.'} ${currentWeight ? `The previous form weighed ${currentWeight} kg.` : ''}
+WEIGHT: The evolved form's weight in kg. The creature has grown — ${currentWeight ? `previous form weighed ${currentWeight} kg` : 'estimate based on the design'}.
 
 STATS: Integers 30-${stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
 
-BACKSTORY: Write a Pokedex-style field observation about the evolved form — 1-2 sentences about new abilities, changed behavior, or ecological role. NOT an origin story. Think nature documentary. The backstory should reflect how the creature's signature feature has developed.
+BACKSTORY: Write a new Pokedex-style field observation for this evolved form — 1-2 sentences. Think nature documentary. The backstory should BUILD on the previous one and explain WHY the creature evolved the way it did. Great Pokemon backstories connect the creature's biology to its evolution:
+- Slowpoke evolves when a Shellder bites its tail while fishing
+- Magikarp's relentless struggle upstream transforms it into the fearsome Gyarados
+- Cubone's grief over its mother hardens into Marowak's fierce independence
+Use the current backstory as a springboard — what happened next in this creature's life that caused it to change?
 
-APPEARANCE: Describe how the creature has evolved visually. Follow these rules inspired by how real Pokemon evolve (e.g. Treecko → Grovyle → Sceptile):
-- SAME exact color palette as the current appearance. Do NOT change or add colors.
-- The creature's signature/distinctive feature from stage ${stage - 1} must GROW and become more prominent:
-${stage === 2 ? '  - What was a small decorative trait is now a functional, eye-catching feature. The body has grown — taller, sturdier, more filled out. Think Ivysaur vs Bulbasaur: same creature but bigger and more developed.' : "  - The feature now DOMINATES the design — it IS the creature's identity and signature ability. The body is fully mature: massive, powerful, and commanding. Think Venusaur vs Ivysaur: much heavier and more imposing."}
-- Same body type but BIGGER and more substantial — ${stage === 2 ? 'an adolescent growing into its body, noticeably larger than the baby form' : 'a fully mature apex creature, thick, heavy, and battle-hardened'}.
-- 1-2 vivid sentences. Mention the specific colors from the current appearance by name.
+APPEARANCE: Describe how the creature looks now. Keep the same color palette and mention the specific colors by name.
+
+Let the backstory drive the visual design. The creature's story should explain its new form — how its behavior, habitat, or biology shaped what it became. Some evolutions are subtle (Ivysaur is just a bigger Bulbasaur with a blooming flower). Others are surprising (Remoraid the fish becomes Octillery the octopus). Most are somewhere in between. Be creative and let the creature's narrative guide you.
+
+${stage === 2 ? `Good stage 2 evolutions: the signature feature develops and becomes functional. The creature is bigger and more capable. Sometimes the evolution is natural growth (Wartortle), sometimes something unexpected happens along the way (Metapod). Let the backstory decide.` : `Good stage 3 evolutions: the creature reaches its final form. Sometimes that's a natural culmination (Venusaur), sometimes it's a complete metamorphosis (Butterfree from Metapod). The most memorable final evolutions feel inevitable once you know the story — but surprising if you don't.`}
+
+1-2 vivid sentences. Focus on what makes this evolved form visually distinct from the previous stage.
 
 MOVES: Evolve the current moves into stronger thematic versions. The move names should reflect the creature's growing power and its signature feature.
 ${stage === 2 ? '- Moves should feel stronger and more confident — the creature is growing into its power. Hits land harder, abilities are more controlled.' : '- Moves should feel devastating, overwhelming — the creature has reached full power and mastery.\n- Stage 3 gets a THIRD move! Add a new move with a different effect type from the first two. This represents the creature unlocking its ultimate ability at apex form.'}
@@ -164,6 +168,7 @@ export async function POST(req: Request) {
             monster.appearance ?? '',
             monster.body_type ?? null,
             monster.weight ?? null,
+            monster.backstory ?? '',
           ),
         },
       ],
@@ -219,7 +224,6 @@ export async function POST(req: Request) {
       toStage,
       appearance,
       monster.appearance ?? '',
-      monster.body_type ?? null,
     );
 
     // Attempt to fetch previous sprite as a reference image
