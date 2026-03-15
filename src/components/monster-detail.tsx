@@ -124,16 +124,20 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         </button>
         {!hasHistory && (
           <div className="flex gap-0.5">
-            {[1, 2, 3].map((s) => (
-              <span
-                key={s}
-                className={`text-[10px] ${
-                  s <= entry.stage ? 'text-retro-gold' : 'text-retro-white/20'
-                }`}
-              >
-                ◆
-              </span>
-            ))}
+            {entry.evo_threshold_2 != null ? (
+              [1, 2, 3].map((s) => (
+                <span
+                  key={s}
+                  className={`text-[10px] ${
+                    s <= entry.stage ? 'text-retro-gold' : 'text-retro-white/20'
+                  }`}
+                >
+                  ◆
+                </span>
+              ))
+            ) : (
+              <span className="text-[10px] text-retro-gold">◆</span>
+            )}
           </div>
         )}
       </div>

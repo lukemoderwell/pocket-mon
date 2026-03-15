@@ -266,18 +266,22 @@ export default function PokedexPage() {
                       {entry.monster_name}
                     </span>
                     <div className="flex gap-0.5 shrink-0">
-                      {[1, 2, 3].map((s) => (
-                        <span
-                          key={s}
-                          className={`text-[6px] ${
-                            s <= entry.stage
-                              ? 'text-retro-gold'
-                              : 'text-retro-white/20'
-                          }`}
-                        >
-                          ◆
-                        </span>
-                      ))}
+                      {entry.evo_threshold_2 != null ? (
+                        [1, 2, 3].map((s) => (
+                          <span
+                            key={s}
+                            className={`text-[6px] ${
+                              s <= entry.stage
+                                ? 'text-retro-gold'
+                                : 'text-retro-white/20'
+                            }`}
+                          >
+                            ◆
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[6px] text-retro-gold">◆</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-3 font-retro text-[7px]">
