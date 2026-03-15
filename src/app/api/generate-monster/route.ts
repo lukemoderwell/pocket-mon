@@ -30,19 +30,11 @@ Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "
 
 STATS: Integers 30-${canEvolve ? 100 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Create a distinct archetype — don't make all stats similar. A physical bruiser should have high attack but low sp_attack. A mystic creature should have high sp_attack but low attack. Tanks have high hp+defense but low speed, etc.${!canEvolve ? ' Non-evolving monsters are generally stronger and more balanced since they must compete without evolution.' : ''}
 
-BACKSTORY: Write a Pokedex-style field observation — 1-2 sentences about the creature's biology, behavior, or habitat. Think nature documentary narrated by a fascinated researcher. The best entries reveal something surprising or specific — a weird real-world behavior adapted for a fantasy creature.
-
-Draw inspiration from real biology and natural phenomena:
-- Symbiosis: cleaner fish, mycorrhizal networks, clownfish-anemone partnerships
-- Weird animal facts: pistol shrimp sonic booms, tardigrade cryptobiosis, axolotl regeneration, bombardier beetle chemical defense
-- Behavioral quirks: crows that hold grudges, octopi that use coconut shells as armor, decorator crabs that camouflage with sponges
-- Natural phenomena: bioluminescence, piezoelectricity in crystals, magnetic navigation, chemosynthesis near deep-sea vents
-
-Examples of the tone (from real Pokedex entries):
-- "It stores electricity in the electric pouches on its cheeks. When it releases pent-up energy in a burst, the electric power is equal to a lightning bolt."
-- "It keeps its tail raised to monitor its surroundings. If you yank its tail, it will try to bite you."
-- "Born on a cold seafloor, it will swim to the surface if its body temperature rises sufficiently."
-- "It usually moves slowly, but it goes at blinding speed when it attacks and bites prey."
+BACKSTORY: Write a Pokedex-style field observation — 1-2 sentences about the creature's biology, behavior, or habitat. NOT an origin story. Think nature documentary, not fantasy novel.
+Examples of the tone:
+- "For some time after its birth, it uses the nutrients that are packed into the seed on its back in order to grow."
+- "The flame on its tail shows the strength of its life-force. If it is weak, the flame also burns weakly."
+- "It digs deep burrows to live in. When in danger, it rolls up its body to withstand attacks."
 
 BODY_TYPE: Choose the body plan that best fits the creature from: "bipedal", "quadruped", "serpentine", "avian", "insectoid", "amorphous", "floating", "aquatic". This determines how the creature moves and fights.
 
