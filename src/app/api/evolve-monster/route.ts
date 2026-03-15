@@ -97,15 +97,6 @@ APPEARANCE: Describe how the creature looks now. Keep the same color palette and
 Let the backstory drive the visual design. The creature's story should explain its new form — how its behavior, habitat, or biology shaped what it became. Some evolutions are subtle (Ivysaur is just a bigger Bulbasaur with a blooming flower). Others are surprising (Remoraid the fish becomes Octillery the octopus). Most are somewhere in between. Be creative and let the creature's narrative guide you.
 
 ${stage === 2 ? `Good stage 2 evolutions: the signature feature develops and becomes functional. The creature is bigger and more capable. Sometimes the evolution is natural growth (Wartortle), sometimes something unexpected happens along the way (Metapod). Let the backstory decide.` : `Good stage 3 evolutions: the creature reaches its final form. Sometimes that's a natural culmination (Venusaur), sometimes it's a complete metamorphosis (Butterfree from Metapod). The most memorable final evolutions feel inevitable once you know the story — but surprising if you don't.`}
-
-1-2 vivid sentences. Focus on what makes this evolved form visually distinct from the previous stage.
-
-APPEARANCE: Describe how the creature looks now. Keep the same color palette and mention the specific colors by name.
-
-Let the backstory drive the visual design. The creature's story should explain its new form — how its behavior, habitat, or biology shaped what it became. Some evolutions are subtle (Ivysaur is just a bigger Bulbasaur with a blooming flower). Others are surprising (Remoraid the fish becomes Octillery the octopus). Most are somewhere in between. Be creative and let the creature's narrative guide you.
-
-${stage === 2 ? `Good stage 2 evolutions: the signature feature develops and becomes functional. The creature is bigger and more capable. Sometimes the evolution is natural growth (Wartortle), sometimes something unexpected happens along the way (Metapod). Let the backstory decide.` : `Good stage 3 evolutions: the creature reaches its final form. Sometimes that's a natural culmination (Venusaur), sometimes it's a complete metamorphosis (Butterfree from Metapod). The most memorable final evolutions feel inevitable once you know the story — but surprising if you don't.`}
-
 1-2 vivid sentences. Focus on what makes this evolved form visually distinct from the previous stage.
 
 MOVES: Evolve the current moves into stronger thematic versions. The move names should reflect the creature's growing power and its signature feature.
