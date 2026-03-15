@@ -27,6 +27,15 @@ export function MonsterCard({ monster, highlight, compact }: MonsterCardProps) {
         </div>
         <div className="flex items-center gap-2">
           <h3 className="font-retro text-xs text-retro-gold">{monster.name}</h3>
+          {monster.gender && (
+            <span
+              className={`text-[8px] ${
+                monster.gender === 'male' ? 'text-retro-blue' : 'text-pink-400'
+              }`}
+            >
+              {monster.gender === 'male' ? '\u2642' : '\u2640'}
+            </span>
+          )}
           <StageIndicator stage={monster.stage} canEvolve={monster.evo_threshold_2 != null} />
         </div>
         <div className="grid w-full grid-cols-2 gap-x-4 gap-y-1 text-[8px]">

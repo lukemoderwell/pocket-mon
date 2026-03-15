@@ -127,7 +127,7 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Name + copy */}
+      {/* Name + copy + gender */}
       <div className="flex items-center gap-2">
         <button
           onClick={copyName}
@@ -136,6 +136,16 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         >
           {copied ? 'Copied!' : entry.monster_name}
         </button>
+        {entry.gender && (
+          <span
+            className={`font-retro text-xs ${
+              entry.gender === 'male' ? 'text-retro-blue' : 'text-pink-400'
+            }`}
+            title={entry.gender === 'male' ? 'Male' : 'Female'}
+          >
+            {entry.gender === 'male' ? '\u2642' : '\u2640'}
+          </span>
+        )}
         {!hasHistory && (
           <div className="flex gap-0.5">
             {entry.stage === 0 && (

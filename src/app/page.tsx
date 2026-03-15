@@ -279,6 +279,17 @@ export default function Home() {
                       <span className="font-retro text-[9px] text-retro-white truncate">
                         {entry.monster_name}
                       </span>
+                      {entry.gender && (
+                        <span
+                          className={`text-[6px] shrink-0 ${
+                            entry.gender === 'male'
+                              ? 'text-retro-blue'
+                              : 'text-pink-400'
+                          }`}
+                        >
+                          {entry.gender === 'male' ? '\u2642' : '\u2640'}
+                        </span>
+                      )}
                       <div className="flex gap-0.5 shrink-0">
                         {entry.stage === 0 && (
                           <span className="text-[6px] text-pink-400">

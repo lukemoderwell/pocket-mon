@@ -264,6 +264,17 @@ export default function PokedexPage() {
                     <span className="font-retro text-[9px] text-retro-white truncate">
                       {entry.monster_name}
                     </span>
+                    {entry.gender && (
+                      <span
+                        className={`text-[6px] shrink-0 ${
+                          entry.gender === 'male'
+                            ? 'text-retro-blue'
+                            : 'text-pink-400'
+                        }`}
+                      >
+                        {entry.gender === 'male' ? '\u2642' : '\u2640'}
+                      </span>
+                    )}
                     <div className="flex gap-0.5 shrink-0">
                       {entry.evo_threshold_2 != null ? (
                         [1, 2, 3].map((s) => (
