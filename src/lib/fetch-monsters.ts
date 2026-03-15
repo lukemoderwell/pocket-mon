@@ -82,6 +82,7 @@ export async function fetchMonstersWithStats(
       image_url: m.image_url,
       backstory: m.backstory ?? '',
       stage: m.stage ?? 1,
+      passive: m.passive ?? undefined,
       moves: Array.isArray(m.moves) ? m.moves : [],
       evolution_history: Array.isArray(m.evolution_history)
         ? m.evolution_history

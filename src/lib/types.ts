@@ -96,6 +96,7 @@ export interface LeaderboardEntry {
   evolution_history?: StageSnapshot[];
   evo_threshold_2?: number | null;
   body_type?: BodyType;
+  passive?: PassiveAbility;
   weight?: number;
   created_at: string;
 }
