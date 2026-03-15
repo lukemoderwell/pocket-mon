@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { motion, AnimatePresence } from "motion/react";
-import { RetroButton } from "@/components/retro-button";
-import { RetroCard } from "@/components/retro-card";
-import { EggHatch } from "@/components/egg-hatch";
-import { supabase } from "@/lib/supabase";
-import { canBreed, canBreedTogether } from "@/lib/breeding";
-import type { Monster } from "@/lib/types";
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { motion, AnimatePresence } from 'motion/react';
+import { RetroButton } from '@/components/retro-button';
+import { RetroCard } from '@/components/retro-card';
+import { EggHatch } from '@/components/egg-hatch';
+import { supabase } from '@/lib/supabase';
+import { canBreed, canBreedTogether } from '@/lib/breeding';
+import type { Monster } from '@/lib/types';
 
-type PageMode = "select" | "confirm" | "hatching" | "generating" | "result";
+type PageMode = 'select' | 'confirm' | 'hatching' | 'generating' | 'result';
 
 export default function BreedPage() {
   const router = useRouter();
@@ -20,8 +20,8 @@ export default function BreedPage() {
   const [loading, setLoading] = useState(true);
   const [parentA, setParentA] = useState<Monster | null>(null);
   const [parentB, setParentB] = useState<Monster | null>(null);
-  const [mode, setMode] = useState<PageMode>("select");
-  const [babyName, setBabyName] = useState("");
+  const [mode, setMode] = useState<PageMode>('select');
+  const [babyName, setBabyName] = useState('');
   const [offspring, setOffspring] = useState<Monster | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -30,9 +30,9 @@ export default function BreedPage() {
   useEffect(() => {
     async function fetchBreedable() {
       const { data } = await supabase
-        .from("monsters")
-        .select("*")
-        .in("stage", [1, 3]);
+        .from('monsters')
+        .select('*')
+        .in('stage', [1, 3]);
 
       if (data) {
         const all = data as Monster[];
@@ -54,7 +54,7 @@ export default function BreedPage() {
         return check.ok;
       });
     },
-    [breedable]
+    [breedable],
   );
 
   const handleSelectA = (m: Monster) => {
@@ -67,7 +67,7 @@ export default function BreedPage() {
     if (!parentA) return;
     const check = canBreedTogether(parentA, m);
     if (!check.ok) {
-      setError(check.reason ?? "Cannot breed these two");
+      setError(check.reason ?? 'Cannot breed these two');
       return;
     }
     setParentB(m);
@@ -76,22 +76,22 @@ export default function BreedPage() {
 
   const handleConfirm = () => {
     if (!parentA || !parentB || !babyName.trim()) return;
-    setMode("hatching");
+    setMode('hatching');
   };
 
   const handleHatchSuccess = async () => {
     if (!parentA || !parentB) return;
-    setMode("generating");
+    setMode('generating');
     setGenerating(true);
 
     try {
       // Determine mother/father
-      const motherId = parentA.gender === "female" ? parentA.id : parentB.id;
-      const fatherId = parentA.gender === "male" ? parentA.id : parentB.id;
+      const motherId = parentA.gender === 'female' ? parentA.id : parentB.id;
+      const fatherId = parentA.gender === 'male' ? parentA.id : parentB.id;
 
-      const res = await fetch("/api/breed-monster", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/breed-monster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mother_id: motherId,
           father_id: fatherId,
@@ -101,35 +101,35 @@ export default function BreedPage() {
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || "Breeding failed");
+        throw new Error(err.error || 'Breeding failed');
       }
 
       const data = await res.json();
       setOffspring(data.monster);
-      setMode("result");
+      setMode('result');
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Breeding failed");
-      setMode("select");
+      setError(e instanceof Error ? e.message : 'Breeding failed');
+      setMode('select');
     } finally {
       setGenerating(false);
     }
   };
 
   const handleHatchFail = () => {
-    setMode("confirm");
+    setMode('confirm');
   };
 
   const motherName =
-    parentA?.gender === "female" ? parentA.name : parentB?.name ?? "";
+    parentA?.gender === 'female' ? parentA.name : (parentB?.name ?? '');
   const fatherName =
-    parentA?.gender === "male" ? parentA.name : parentB?.name ?? "";
+    parentA?.gender === 'male' ? parentA.name : (parentB?.name ?? '');
 
   // ─── Hatching mini-games ─────────────────────────────────────
-  if (mode === "hatching") {
+  if (mode === 'hatching') {
     return (
       <EggHatch
-        motherName={motherName || parentA?.name || "Mom"}
-        fatherName={fatherName || parentB?.name || "Dad"}
+        motherName={motherName || parentA?.name || 'Mom'}
+        fatherName={fatherName || parentB?.name || 'Dad'}
         onHatch={handleHatchSuccess}
         onFail={handleHatchFail}
       />
@@ -137,12 +137,12 @@ export default function BreedPage() {
   }
 
   // ─── Generating offspring ─────────────────────────────────────
-  if (mode === "generating") {
+  if (mode === 'generating') {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-retro-black">
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
           className="w-16 h-16 border-4 border-retro-gold/30 border-t-retro-gold rounded-full"
         />
         <p className="font-retro text-[10px] text-retro-white/50 animate-pulse">
@@ -153,13 +153,13 @@ export default function BreedPage() {
   }
 
   // ─── Result — show offspring ──────────────────────────────────
-  if (mode === "result" && offspring) {
+  if (mode === 'result' && offspring) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", duration: 0.6 }}
+          transition={{ type: 'spring', duration: 0.6 }}
           className="flex flex-col items-center gap-4"
         >
           <p className="font-retro text-[10px] text-retro-white/60">
@@ -168,7 +168,6 @@ export default function BreedPage() {
           <span className="font-retro text-[7px] text-pink-400 border border-pink-400/40 px-2 py-0.5">
             Stage 0 - Hatchling
           </span>
-
           <div className="relative h-40 w-40 overflow-hidden border-4 border-retro-gold bg-[#4a90d9]">
             <Image
               src={offspring.image_url}
@@ -186,12 +185,12 @@ export default function BreedPage() {
           {/* Gender badge */}
           <span
             className={`font-retro text-[8px] px-2 py-0.5 border ${
-              offspring.gender === "female"
-                ? "text-pink-400 border-pink-400/40"
-                : "text-blue-400 border-blue-400/40"
+              offspring.gender === 'female'
+                ? 'text-pink-400 border-pink-400/40'
+                : 'text-blue-400 border-blue-400/40'
             }`}
           >
-            {offspring.gender === "female" ? "\u2640 Female" : "\u2642 Male"}
+            {offspring.gender === 'female' ? '\u2640 Female' : '\u2642 Male'}
           </span>
 
           <p className="font-retro text-[8px] text-retro-white/50 text-center max-w-xs">
@@ -238,17 +237,17 @@ export default function BreedPage() {
         <div className="flex gap-3">
           <RetroButton
             onClick={() => {
-              setMode("select");
+              setMode('select');
               setParentA(null);
               setParentB(null);
               setOffspring(null);
-              setBabyName("");
+              setBabyName('');
             }}
             variant="secondary"
           >
             Breed Again
           </RetroButton>
-          <RetroButton onClick={() => router.push("/")}>Home</RetroButton>
+          <RetroButton onClick={() => router.push('/')}>Home</RetroButton>
         </div>
       </div>
     );
@@ -259,7 +258,7 @@ export default function BreedPage() {
   const listToShow = parentA ? compatibleMates : breedable;
   const selectingLabel = parentA
     ? `Choose a mate for ${parentA.name}`
-    : "Choose the first parent";
+    : 'Choose the first parent';
 
   return (
     <div className="flex min-h-dvh flex-col items-center gap-6 p-6">
@@ -284,7 +283,7 @@ export default function BreedPage() {
               onClick={() => {
                 setParentA(null);
                 setParentB(null);
-                setMode("select");
+                setMode('select');
               }}
             />
           )}
@@ -296,13 +295,15 @@ export default function BreedPage() {
               monster={parentB}
               onClick={() => {
                 setParentB(null);
-                setMode("select");
+                setMode('select');
               }}
             />
           ) : (
             parentA && (
               <div className="w-16 h-16 border-2 border-dashed border-retro-white/20 flex items-center justify-center">
-                <span className="font-retro text-[8px] text-retro-white/30">?</span>
+                <span className="font-retro text-[8px] text-retro-white/30">
+                  ?
+                </span>
               </div>
             )
           )}
@@ -315,7 +316,7 @@ export default function BreedPage() {
       )}
 
       {/* Confirm mode with name input */}
-      {parentA && parentB && mode !== "result" && (
+      {parentA && parentB && mode !== 'result' && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -328,16 +329,15 @@ export default function BreedPage() {
             <input
               type="text"
               value={babyName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBabyName(e.target.value.slice(0, 30))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setBabyName(e.target.value.slice(0, 30))
+              }
               placeholder="Enter a name..."
               className="w-full bg-retro-black border-2 border-retro-white/30 px-3 py-2 font-retro text-[10px] text-retro-white placeholder:text-retro-white/20 focus:border-retro-gold outline-none"
             />
           </RetroCard>
 
-          <RetroButton
-            onClick={handleConfirm}
-            disabled={!babyName.trim()}
-          >
+          <RetroButton onClick={handleConfirm} disabled={!babyName.trim()}>
             Breed!
           </RetroButton>
         </motion.div>
@@ -347,17 +347,17 @@ export default function BreedPage() {
       {(!parentA || !parentB) && (
         <>
           <p className="font-retro text-[8px] text-retro-white/50">
-            {loading ? "Loading..." : selectingLabel}
+            {loading ? 'Loading...' : selectingLabel}
           </p>
 
           {!loading && listToShow.length === 0 && (
             <div className="text-center">
               <p className="font-retro text-[8px] text-retro-white/40 mb-2">
                 {parentA
-                  ? "No compatible mates found. Need opposite gender."
-                  : "No breedable monsters found. Creatures need to reach stage 3 first."}
+                  ? 'No compatible mates found. Need opposite gender.'
+                  : 'No breedable monsters found. Creatures need to reach stage 3 first.'}
               </p>
-              <RetroButton onClick={() => router.push("/")} variant="secondary">
+              <RetroButton onClick={() => router.push('/')} variant="secondary">
                 Back
               </RetroButton>
             </div>
@@ -386,20 +386,22 @@ export default function BreedPage() {
                     </span>
                     <span
                       className={`font-retro text-[7px] ${
-                        m.gender === "female"
-                          ? "text-pink-400"
-                          : m.gender === "male"
-                          ? "text-blue-400"
-                          : "text-retro-white/30"
+                        m.gender === 'female'
+                          ? 'text-pink-400'
+                          : m.gender === 'male'
+                            ? 'text-blue-400'
+                            : 'text-retro-white/30'
                       }`}
                     >
-                      {m.gender === "female" ? "\u2640" : m.gender === "male" ? "\u2642" : "?"}
+                      {m.gender === 'female'
+                        ? '\u2640'
+                        : m.gender === 'male'
+                          ? '\u2642'
+                          : '?'}
                     </span>
                   </div>
                   <div className="flex gap-3 font-retro text-[7px]">
-                    <span className="text-retro-white/40">
-                      Stage {m.stage}
-                    </span>
+                    <span className="text-retro-white/40">Stage {m.stage}</span>
                     {m.passive && (
                       <span className="text-retro-gold/60">{m.passive}</span>
                     )}
@@ -412,7 +414,7 @@ export default function BreedPage() {
       )}
 
       {/* Back button */}
-      <RetroButton onClick={() => router.push("/")} variant="secondary">
+      <RetroButton onClick={() => router.push('/')} variant="secondary">
         Back to Lobby
       </RetroButton>
     </div>
@@ -427,7 +429,10 @@ function ParentBadge({
   onClick: () => void;
 }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1 group">
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center gap-1 group"
+    >
       <div className="relative h-16 w-16 overflow-hidden border-2 border-retro-gold bg-[#4a90d9] group-hover:border-retro-accent transition-colors">
         <Image
           src={monster.image_url}
@@ -442,10 +447,10 @@ function ParentBadge({
       </span>
       <span
         className={`font-retro text-[7px] ${
-          monster.gender === "female" ? "text-pink-400" : "text-blue-400"
+          monster.gender === 'female' ? 'text-pink-400' : 'text-blue-400'
         }`}
       >
-        {monster.gender === "female" ? "\u2640" : "\u2642"}
+        {monster.gender === 'female' ? '\u2640' : '\u2642'}
       </span>
     </button>
   );
