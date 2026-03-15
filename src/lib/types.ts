@@ -45,6 +45,8 @@ export interface StageSnapshot {
   weight?: number;
 }
 
+export type MonsterGender = "male" | "female";
+
 export interface Monster {
   id: string;
   name: string;
@@ -58,12 +60,26 @@ export interface Monster {
   appearance: string;
   moves: Move[];
   passive?: PassiveAbility;
+  gender?: MonsterGender;
   stage: number;
   evolution_history: StageSnapshot[];
   evo_threshold_2: number | null;
   evo_threshold_3: number | null;
   body_type?: BodyType;
   weight?: number;
+  created_at: string;
+}
+
+export interface Egg {
+  id: string;
+  name: string;
+  mother_id: string;
+  father_id: string;
+  inherited_moves: Move[];
+  inherited_passive?: PassiveAbility;
+  appearance_hint: string;
+  hatched: boolean;
+  monster_id?: string;
   created_at: string;
 }
 
@@ -93,6 +109,7 @@ export interface LeaderboardEntry {
   backstory: string;
   stage: number;
   moves: Move[];
+  gender?: MonsterGender;
   evolution_history?: StageSnapshot[];
   evo_threshold_2?: number | null;
   body_type?: BodyType;

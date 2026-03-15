@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
-import OpenAI from "openai";
-import { supabase } from "@/lib/supabase";
-import { normalizeStats } from "@/lib/normalize-stats";
-import { normalizeMoves } from "@/lib/normalize-moves";
-import { assignPassive } from "@/lib/passive-abilities";
+import { NextResponse } from 'next/server';
+import OpenAI from 'openai';
+import { supabase } from '@/lib/supabase';
+import { normalizeStats } from '@/lib/normalize-stats';
+import { normalizeMoves } from '@/lib/normalize-moves';
+import { assignPassive } from '@/lib/passive-abilities';
 
 const openai = new OpenAI();
 
@@ -68,29 +68,36 @@ export async function POST(req: Request) {
   try {
     const { name } = await req.json();
 
-    if (!name || typeof name !== "string" || name.length > 30) {
-      return NextResponse.json({ error: "Invalid name" }, { status: 400 });
+    if (!name || typeof name !== 'string' || name.length > 30) {
+      return NextResponse.json({ error: 'Invalid name' }, { status: 400 });
     }
 
     // Check if monster already exists (upsert behavior)
     const { data: existing } = await supabase
-      .from("monsters")
-      .select("*")
-      .eq("name", name.trim())
+      .from('monsters')
+      .select('*')
+      .eq('name', name.trim())
       .maybeSingle();
 
     if (existing) {
       // Backfill evolution thresholds for pre-migration monsters
-      if (existing.evo_threshold_2 == null || existing.evo_threshold_3 == null) {
-        const evo_threshold_2 = existing.evo_threshold_2 ?? (Math.floor(Math.random() * 6) + 5);
-        const evo_threshold_3 = existing.evo_threshold_3 ?? (Math.floor(Math.random() * 16) + 15);
+      if (
+        existing.evo_threshold_2 == null ||
+        existing.evo_threshold_3 == null
+      ) {
+        const evo_threshold_2 =
+          existing.evo_threshold_2 ?? Math.floor(Math.random() * 6) + 5;
+        const evo_threshold_3 =
+          existing.evo_threshold_3 ?? Math.floor(Math.random() * 16) + 15;
         const { data: updated } = await supabase
-          .from("monsters")
+          .from('monsters')
           .update({ evo_threshold_2, evo_threshold_3 })
-          .eq("id", existing.id)
+          .eq('id', existing.id)
           .select()
           .single();
-        return NextResponse.json({ monster: updated ?? { ...existing, evo_threshold_2, evo_threshold_3 } });
+        return NextResponse.json({
+          monster: updated ?? { ...existing, evo_threshold_2, evo_threshold_3 },
+        });
       }
       return NextResponse.json({ monster: existing });
     }
@@ -102,24 +109,36 @@ export async function POST(req: Request) {
 
     // Step 1: Generate stats, appearance, backstory, and moves
     const statsResult = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      messages: [{ role: "user", content: STATS_PROMPT(name, canEvolve, statBudget) }],
-      response_format: { type: "json_object" },
+      model: 'gpt-4.1-mini',
+      messages: [
+        { role: 'user', content: STATS_PROMPT(name, canEvolve, statBudget) },
+      ],
+      response_format: { type: 'json_object' },
     });
 
-    const raw = JSON.parse(
-      statsResult.choices[0].message.content ?? "{}"
-    ) as {
-      hp: number; attack: number; defense: number; sp_attack: number; speed: number;
-      backstory: string; appearance: string;
-      body_type?: string; weight?: number;
-      moves: { name: string; effect: string; category: string; accuracy?: number }[];
+    const raw = JSON.parse(statsResult.choices[0].message.content ?? '{}') as {
+      hp: number;
+      attack: number;
+      defense: number;
+      sp_attack: number;
+      speed: number;
+      backstory: string;
+      appearance: string;
+      body_type?: string;
+      weight?: number;
+      moves: {
+        name: string;
+        effect: string;
+        category: string;
+        accuracy?: number;
+      }[];
     };
     const stats = normalizeStats(raw, statBudget, maxStat);
-    const backstory = typeof raw.backstory === "string" ? raw.backstory : "";
-    const appearance = typeof raw.appearance === "string" ? raw.appearance : "";
-    const bodyType = typeof raw.body_type === "string" ? raw.body_type : null;
-    const weight = typeof raw.weight === "number" && raw.weight > 0 ? raw.weight : null;
+    const backstory = typeof raw.backstory === 'string' ? raw.backstory : '';
+    const appearance = typeof raw.appearance === 'string' ? raw.appearance : '';
+    const bodyType = typeof raw.body_type === 'string' ? raw.body_type : null;
+    const weight =
+      typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
     // Non-evolving monsters get stage 3 move normalization for 3 moves
     const moves = normalizeMoves(raw.moves, canEvolve ? 1 : 3);
     const passive = assignPassive(stats);
@@ -129,73 +148,95 @@ export async function POST(req: Request) {
     let imageResult;
     try {
       imageResult = await openai.images.generate({
-        model: "gpt-image-1",
-        prompt: IMAGE_PROMPT(name, appearance || (canEvolve ? `A small, cute baby creature with fantastical monster traits` : `A mature, battle-ready creature with fantastical monster traits`), canEvolve),
+        model: 'gpt-image-1',
+        prompt: IMAGE_PROMPT(
+          name,
+          appearance ||
+            (canEvolve
+              ? `A small, cute baby creature with fantastical monster traits`
+              : `A mature, battle-ready creature with fantastical monster traits`),
+          canEvolve,
+        ),
         n: 1,
-        size: "1024x1024",
-        quality: "medium",
+        size: '1024x1024',
+        quality: 'medium',
       });
     } catch (imgErr: unknown) {
-      const err = imgErr as { code?: string; status?: number; error?: unknown; message?: string };
-      console.error("Image generation failed:", {
+      const err = imgErr as {
+        code?: string;
+        status?: number;
+        error?: unknown;
+        message?: string;
+      };
+      console.error('Image generation failed:', {
         code: err.code,
         status: err.status,
         message: err.message,
         error: err.error,
-        prompt: IMAGE_PROMPT(name, appearance || (canEvolve ? "A small, cute baby creature with fantastical monster traits" : "A mature, battle-ready creature with fantastical monster traits"), canEvolve),
+        prompt: IMAGE_PROMPT(
+          name,
+          appearance ||
+            (canEvolve
+              ? 'A small, cute baby creature with fantastical monster traits'
+              : 'A mature, battle-ready creature with fantastical monster traits'),
+          canEvolve,
+        ),
       });
-      if (err.code === "moderation_blocked") {
-        console.warn("Retrying with simplified prompt");
+      if (err.code === 'moderation_blocked') {
+        console.warn('Retrying with simplified prompt');
         imageResult = await openai.images.generate({
-          model: "gpt-image-1",
+          model: 'gpt-image-1',
           prompt: `A 16-bit SNES-style pixel art creature named "${name}". ${canEvolve ? 'A small, cute baby creature' : 'A mature, battle-ready creature'} with fantastical monster traits. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`,
           n: 1,
-          size: "1024x1024",
-          quality: "medium",
+          size: '1024x1024',
+          quality: 'medium',
         });
       } else {
         throw imgErr;
       }
     }
 
-    // Generate evolution thresholds (null for non-evolving monsters)
-    const evo_threshold_2 = canEvolve ? Math.floor(Math.random() * 6) + 5 : null;   // 5-10 or null
-    const evo_threshold_3 = canEvolve ? Math.floor(Math.random() * 16) + 15 : null; // 15-30 or null
+    // Assign gender randomly
+    const gender = Math.random() < 0.5 ? 'male' : 'female';
+
+    // Generate random evolution thresholds
+    const evo_threshold_2 = Math.floor(Math.random() * 6) + 5; // 5-10
+    const evo_threshold_3 = Math.floor(Math.random() * 16) + 15; // 15-30
 
     // Upload image to Supabase Storage
     const imageB64 = imageResult.data?.[0]?.b64_json;
     if (!imageB64) {
       return NextResponse.json(
-        { error: "Image generation failed" },
-        { status: 500 }
+        { error: 'Image generation failed' },
+        { status: 500 },
       );
     }
 
-    const imageBuffer = Buffer.from(imageB64, "base64");
-    const fileName = `${name.toLowerCase().replace(/\s+/g, "-")}-${Date.now()}.png`;
+    const imageBuffer = Buffer.from(imageB64, 'base64');
+    const fileName = `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.png`;
 
     const { error: uploadError } = await supabase.storage
-      .from("monsters")
+      .from('monsters')
       .upload(fileName, imageBuffer, {
-        contentType: "image/png",
+        contentType: 'image/png',
         upsert: false,
       });
 
     if (uploadError) {
-      console.error("Upload error:", uploadError);
+      console.error('Upload error:', uploadError);
       return NextResponse.json(
-        { error: "Image upload failed" },
-        { status: 500 }
+        { error: 'Image upload failed' },
+        { status: 500 },
       );
     }
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from("monsters").getPublicUrl(fileName);
+    } = supabase.storage.from('monsters').getPublicUrl(fileName);
 
     // Insert monster into database
     const { data: monster, error: insertError } = await supabase
-      .from("monsters")
+      .from('monsters')
       .insert({
         name: name.trim(),
         hp: stats.hp,
@@ -208,6 +249,7 @@ export async function POST(req: Request) {
         appearance,
         moves,
         passive,
+        gender,
         stage: 1,
         body_type: bodyType,
         weight,
@@ -218,19 +260,19 @@ export async function POST(req: Request) {
       .single();
 
     if (insertError) {
-      console.error("Insert error:", insertError);
+      console.error('Insert error:', insertError);
       return NextResponse.json(
-        { error: "Failed to save monster" },
-        { status: 500 }
+        { error: 'Failed to save monster' },
+        { status: 500 },
       );
     }
 
     return NextResponse.json({ monster });
   } catch (error) {
-    console.error("Generate monster error:", error);
+    console.error('Generate monster error:', error);
     return NextResponse.json(
-      { error: "Monster generation failed" },
-      { status: 500 }
+      { error: 'Monster generation failed' },
+      { status: 500 },
     );
   }
 }
