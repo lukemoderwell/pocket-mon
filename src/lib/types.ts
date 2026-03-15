@@ -20,6 +20,16 @@ export type PassiveAbility =
   | "steady"        // immune to stun
   | "reckless";     // rush moves gain +25% power but no extra accuracy penalty
 
+export type BodyType =
+  | "bipedal"
+  | "quadruped"
+  | "serpentine"
+  | "avian"
+  | "insectoid"
+  | "amorphous"
+  | "floating"
+  | "aquatic";
+
 export interface StageSnapshot {
   stage: number;
   hp: number;
@@ -32,6 +42,7 @@ export interface StageSnapshot {
   appearance: string;
   moves: Move[];
   passive?: PassiveAbility;
+  weight?: number;
 }
 
 export interface Monster {
@@ -51,6 +62,8 @@ export interface Monster {
   evolution_history: StageSnapshot[];
   evo_threshold_2: number | null;
   evo_threshold_3: number | null;
+  body_type?: BodyType;
+  weight?: number;
   created_at: string;
 }
 
@@ -81,6 +94,9 @@ export interface LeaderboardEntry {
   stage: number;
   moves: Move[];
   evolution_history?: StageSnapshot[];
+  evo_threshold_2?: number | null;
+  body_type?: BodyType;
+  weight?: number;
   created_at: string;
 }
 

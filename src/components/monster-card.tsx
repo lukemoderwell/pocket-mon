@@ -27,7 +27,7 @@ export function MonsterCard({ monster, highlight, compact }: MonsterCardProps) {
         </div>
         <div className="flex items-center gap-2">
           <h3 className="font-retro text-xs text-retro-gold">{monster.name}</h3>
-          <StageIndicator stage={monster.stage} />
+          <StageIndicator stage={monster.stage} canEvolve={monster.evo_threshold_2 != null} />
         </div>
         <div className="grid w-full grid-cols-2 gap-x-4 gap-y-1 text-[8px]">
           <StatRow label="HP" value={monster.hp} color="text-retro-green" />
@@ -57,7 +57,15 @@ export function MonsterCard({ monster, highlight, compact }: MonsterCardProps) {
   );
 }
 
-function StageIndicator({ stage }: { stage: number }) {
+function StageIndicator({ stage, canEvolve }: { stage: number; canEvolve: boolean }) {
+  if (!canEvolve) {
+    // Non-evolving monster: single filled diamond
+    return (
+      <div className="flex gap-0.5">
+        <span className="text-[8px] text-retro-gold">◆</span>
+      </div>
+    );
+  }
   return (
     <div className="flex gap-0.5">
       {[1, 2, 3].map((s) => (
