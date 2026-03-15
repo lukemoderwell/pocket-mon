@@ -72,11 +72,22 @@ WEIGHT: The evolved form's weight in kg. The creature has grown — ${currentWei
 
 STATS: Integers 30-${stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
 
-BACKSTORY: Write a new Pokedex-style field observation for this evolved form — 1-2 sentences. Think nature documentary. The backstory should BUILD on the previous one and explain WHY the creature evolved the way it did. Great Pokemon backstories connect the creature's biology to its evolution:
-- Slowpoke evolves when a Shellder bites its tail while fishing
-- Magikarp's relentless struggle upstream transforms it into the fearsome Gyarados
-- Cubone's grief over its mother hardens into Marowak's fierce independence
-Use the current backstory as a springboard — what happened next in this creature's life that caused it to change?
+BACKSTORY: Write a new Pokedex-style field observation for this evolved form — 1-2 sentences. Think nature documentary narrated by a fascinated researcher. The backstory should BUILD on the previous one and explain WHY the creature evolved the way it did.
+
+Great evolution backstories root fantasy in real biology:
+- Slowpoke evolves when a Shellder bites its tail while fishing — inspired by parasitic symbiosis
+- Magikarp's relentless struggle upstream transforms it into Gyarados — like salmon that physically transform during spawning runs
+- Cubone's grief over its mother hardens into Marowak's fierce independence — mimics how some animals' hormones permanently change after trauma
+- Vileplume's flower releases toxic pollen — like the real corpse flower Rafflesia, which is parasitic and smells of decay
+
+Draw from real phenomena to explain the transformation:
+- Metamorphosis: caterpillar→butterfly, tadpole→frog, larval sea squirt→sessile adult
+- Behavioral shifts: solitary juveniles becoming pack hunters, prey animals becoming apex predators
+- Environmental adaptation: deep-sea pressure creating bioluminescence, volcanic heat forging mineral armor
+- Symbiotic events: a parasite that becomes beneficial, a hitchhiker organism that fuses permanently
+- Hormonal/chemical changes: chromatophore activation, venom glands maturing, electric organ development
+
+Use the current backstory as a springboard — what happened next in this creature's life that caused it to change? The most memorable entries reveal something the reader didn't expect.
 
 APPEARANCE: Describe how the creature looks now. Keep the same color palette and mention the specific colors by name.
 
