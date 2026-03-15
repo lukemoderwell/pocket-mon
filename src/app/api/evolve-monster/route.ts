@@ -100,21 +100,13 @@ ${stage === 2 ? `Good stage 2 evolutions: the signature feature develops and bec
 
 1-2 vivid sentences. Focus on what makes this evolved form visually distinct from the previous stage.
 
-APPEARANCE: Describe a DRAMATIC visual transformation. Think about how real Pokemon evolve with surprising changes — Charmeleon sprouting wings to become Charizard, Poliwhirl becoming a muscular fighter as Poliwrath, Slowpoke gaining a Shellder on its tail.
+APPEARANCE: Describe how the creature looks now. Keep the same color palette and mention the specific colors by name.
 
-RULES:
-- SAME color palette as the current appearance. Mention the specific colors by name.
-- The signature feature from stage ${stage - 1} should TRANSFORM — not just grow bigger, but change purpose or form entirely.
-${
-  stage === 2
-    ? `- Add ONE surprising new body feature that was NOT present before: wings, horns, a tail blade, armor plates, an extra pair of arms, a crest, etc. Pick something unexpected but thematically fitting.
-- The body proportions should shift noticeably — the creature can change stance (quadruped→bipedal or vice versa), elongate, bulk up dramatically, or change shape.
-- Think Charmeleon vs Charmander: not just bigger, but a completely different vibe and silhouette.`
-    : `- Add TWO or more dramatic new features not present before. The creature should be barely recognizable from its stage 1 form.
-- The body should be radically different — massive, imposing, with a completely transformed silhouette.
-- Think Gyarados vs Magikarp, Dragonite vs Dragonair: a jaw-dropping transformation that surprises.`
-}
-- 1-2 vivid sentences describing the evolved form's most striking new features.
+Let the backstory drive the visual design. The creature's story should explain its new form — how its behavior, habitat, or biology shaped what it became. Some evolutions are subtle (Ivysaur is just a bigger Bulbasaur with a blooming flower). Others are surprising (Remoraid the fish becomes Octillery the octopus). Most are somewhere in between. Be creative and let the creature's narrative guide you.
+
+${stage === 2 ? `Good stage 2 evolutions: the signature feature develops and becomes functional. The creature is bigger and more capable. Sometimes the evolution is natural growth (Wartortle), sometimes something unexpected happens along the way (Metapod). Let the backstory decide.` : `Good stage 3 evolutions: the creature reaches its final form. Sometimes that's a natural culmination (Venusaur), sometimes it's a complete metamorphosis (Butterfree from Metapod). The most memorable final evolutions feel inevitable once you know the story — but surprising if you don't.`}
+
+1-2 vivid sentences. Focus on what makes this evolved form visually distinct from the previous stage.
 
 MOVES: Evolve the current moves into stronger thematic versions. The move names should reflect the creature's growing power and its signature feature.
 ${stage === 1 ? '- Moves should feel like a baby creature growing into its abilities — still cute but becoming capable.' : stage === 2 ? '- Moves should feel faster, sharper, more confident — the creature is coming into its own.' : '- Moves should feel devastating, masterful — the creature has fully mastered its abilities.\n- Stage 3 gets a THIRD move! Add a new move with a different effect type from the first two. This represents the creature unlocking a new ability at its apex form.'}
