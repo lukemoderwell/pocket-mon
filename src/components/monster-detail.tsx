@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import type { LeaderboardEntry, MoveEffect, StageSnapshot } from '@/lib/types';
+import type { LeaderboardEntry, MoveEffect, PassiveAbility, StageSnapshot } from '@/lib/types';
+import { PASSIVE_NAMES, PASSIVE_DESCRIPTIONS } from '@/lib/passive-abilities';
 
 interface MonsterDetailProps {
   entry: LeaderboardEntry;
@@ -166,6 +167,23 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         />
         <StatRow label="SPD" value={current.speed} color="text-retro-gold" />
       </div>
+
+      {/* Passive trait */}
+      {entry.passive && (
+        <div className="w-full max-w-[240px] flex flex-col gap-1">
+          <span className="font-retro text-[7px] text-retro-white/30 uppercase">
+            Passive
+          </span>
+          <div className="pixel-border bg-retro-dark/50 px-2 py-1.5">
+            <span className="font-retro text-[8px] text-retro-gold">
+              {PASSIVE_NAMES[entry.passive as PassiveAbility] ?? entry.passive}
+            </span>
+            <p className="font-retro text-[6px] text-retro-white/40 mt-0.5">
+              {PASSIVE_DESCRIPTIONS[entry.passive as PassiveAbility] ?? ''}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Moves */}
       {current.moves.length > 0 && (
