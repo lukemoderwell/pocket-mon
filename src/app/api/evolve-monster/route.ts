@@ -25,11 +25,13 @@ const EVO_IMAGE_PROMPT = (
   stage: number,
   appearance: string,
   previousAppearance: string,
+  weight: number | null,
   bodyType: string | null,
 ) =>
   `A 16-bit SNES-style pixel art monster named "${name}".
 Previous form (stage ${stage - 1}): "${previousAppearance}"
-${bodyType ? `Body type: ${bodyType} (keep the same body plan)` : ''}
+Previous weight: ${weight} kg
+Previous body type: ${bodyType}
 Evolved form (stage ${stage}): ${appearance || STAGE_DESCRIPTORS[stage]}
 EVOLUTION DESIGN GUIDELINES:
 - Keep the SAME color palette. Do NOT change the core colors.
@@ -98,12 +100,21 @@ ${stage === 2 ? `Good stage 2 evolutions: the signature feature develops and bec
 
 1-2 vivid sentences. Focus on what makes this evolved form visually distinct from the previous stage.
 
-APPEARANCE: Describe how the creature has evolved visually. Follow these rules inspired by how real Pokemon evolve (e.g. Treecko → Grovyle → Sceptile):
-- SAME exact color palette as the current appearance. Do NOT change or add colors.
-- The creature's signature/distinctive feature from stage ${stage - 1} must GROW and become more prominent:
-${stage === 1 ? '  - The hatchling traits are becoming more defined. Still tiny and cute but recognizable as a proper creature now.' : stage === 2 ? '  - What was a small decorative trait is now a functional, eye-catching feature. The body is leaner and more agile.' : "  - The feature now DOMINATES the design — it IS the creature's identity and signature ability. The body is fully mature, powerful, and commanding."}
-- Same body type and proportions, just ${stage === 1 ? 'slightly bigger and sturdier' : stage === 2 ? 'taller and sleeker' : 'larger, stronger, and more imposing'}.
-- 1-2 vivid sentences. Mention the specific colors from the current appearance by name.
+APPEARANCE: Describe a DRAMATIC visual transformation. Think about how real Pokemon evolve with surprising changes — Charmeleon sprouting wings to become Charizard, Poliwhirl becoming a muscular fighter as Poliwrath, Slowpoke gaining a Shellder on its tail.
+
+RULES:
+- SAME color palette as the current appearance. Mention the specific colors by name.
+- The signature feature from stage ${stage - 1} should TRANSFORM — not just grow bigger, but change purpose or form entirely.
+${
+  stage === 2
+    ? `- Add ONE surprising new body feature that was NOT present before: wings, horns, a tail blade, armor plates, an extra pair of arms, a crest, etc. Pick something unexpected but thematically fitting.
+- The body proportions should shift noticeably — the creature can change stance (quadruped→bipedal or vice versa), elongate, bulk up dramatically, or change shape.
+- Think Charmeleon vs Charmander: not just bigger, but a completely different vibe and silhouette.`
+    : `- Add TWO or more dramatic new features not present before. The creature should be barely recognizable from its stage 1 form.
+- The body should be radically different — massive, imposing, with a completely transformed silhouette.
+- Think Gyarados vs Magikarp, Dragonite vs Dragonair: a jaw-dropping transformation that surprises.`
+}
+- 1-2 vivid sentences describing the evolved form's most striking new features.
 
 MOVES: Evolve the current moves into stronger thematic versions. The move names should reflect the creature's growing power and its signature feature.
 ${stage === 1 ? '- Moves should feel like a baby creature growing into its abilities — still cute but becoming capable.' : stage === 2 ? '- Moves should feel faster, sharper, more confident — the creature is coming into its own.' : '- Moves should feel devastating, masterful — the creature has fully mastered its abilities.\n- Stage 3 gets a THIRD move! Add a new move with a different effect type from the first two. This represents the creature unlocking a new ability at its apex form.'}
@@ -251,6 +262,8 @@ export async function POST(req: Request) {
       toStage,
       appearance,
       monster.appearance ?? '',
+      monster.weight ?? null,
+      monster.body_type ?? null,
     );
 
     // Attempt to fetch previous sprite as a reference image
