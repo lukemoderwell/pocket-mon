@@ -37,22 +37,36 @@ interface FetchOptions {
 export async function fetchMonstersWithStats(
   opts?: FetchOptions,
 ): Promise<LeaderboardEntry[]> {
-  // Fetch all battles and tally wins/losses per monster id
-  const { data: battles } = await supabase
-    .from('battles')
-    .select('winner_id, loser_id');
+  // Fetch ALL battles using pagination to bypass PostgREST default row limit
+  // (default is 1000 rows — without pagination, win/loss tallies silently
+  // become stale once the battles table exceeds that threshold).
+  const allBattles: { winner_id: string; loser_id: string }[] = [];
+  const PAGE_SIZE = 1000;
+  let offset = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const { data } = await supabase
+      .from('battles')
+      .select('winner_id, loser_id')
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (data && data.length > 0) {
+      allBattles.push(...data);
+      offset += PAGE_SIZE;
+      hasMore = data.length === PAGE_SIZE;
+    } else {
+      hasMore = false;
+    }
+  }
 
   const stats = new Map<string, { wins: number; losses: number }>();
-  if (battles) {
-    for (const b of battles) {
-      const w = stats.get(b.winner_id) ?? { wins: 0, losses: 0 };
-      w.wins++;
-      stats.set(b.winner_id, w);
+  for (const b of allBattles) {
+    const w = stats.get(b.winner_id) ?? { wins: 0, losses: 0 };
+    w.wins++;
+    stats.set(b.winner_id, w);
 
-      const l = stats.get(b.loser_id) ?? { wins: 0, losses: 0 };
-      l.losses++;
-      stats.set(b.loser_id, l);
-    }
+    const l = stats.get(b.loser_id) ?? { wins: 0, losses: 0 };
+    l.losses++;
+    stats.set(b.loser_id, l);
   }
 
   // Fetch monsters — either all or only those with battle records

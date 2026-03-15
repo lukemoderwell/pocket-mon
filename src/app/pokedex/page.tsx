@@ -117,12 +117,11 @@ export default function PokedexPage() {
   }) {
     setLastWinner(result.winner.name);
 
-    try {
-      await supabase
-        .from('battles')
-        .insert({ winner_id: result.winner.id, loser_id: result.loser.id });
-    } catch {
-      // Non-critical
+    const { error: insertError } = await supabase
+      .from('battles')
+      .insert({ winner_id: result.winner.id, loser_id: result.loser.id });
+    if (insertError) {
+      console.error('Failed to save battle:', insertError);
     }
 
     // Check evolution eligibility for the winner
