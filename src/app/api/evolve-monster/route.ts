@@ -9,13 +9,15 @@ import type { Move } from '@/lib/types';
 const openai = new OpenAI();
 
 const STAGE_CONFIG = {
+  1: { budget: 340, maxStat: 100 },
   2: { budget: 430, maxStat: 120 },
   3: { budget: 520, maxStat: 140 },
 } as const;
 
 const STAGE_DESCRIPTORS: Record<number, string> = {
-  2: 'Mid-evolution form. The creature has grown and matured — bigger, sturdier, more confident. Its signature feature has developed further. The evolution should feel like a natural progression driven by the creature\'s biology and behavior.',
-  3: 'Final apex form. The creature has reached full maturity and power. Its design reflects the culmination of its life story and ecological role. Imposing, commanding presence.',
+  1: 'Baby form growing into a proper creature. Still small but its features are becoming more defined and recognizable. Its signature traits from its hatchling form are taking shape — hints of what it will become. More alert eyes, slightly sturdier build.',
+  2: 'Mid-evolution adolescent form. Leaner and more agile than its baby form. Its signature feature from stage 1 has grown more prominent and functional — what was once a small trait is now a defining part of its silhouette. More confident stance, sharper eyes, clearly faster and more capable.',
+  3: "Final apex form. The signature feature now dominates the design — it has become the creature's primary signature ability or defining trait. Powerful, commanding presence. The body has matured fully: taller, stronger, battle-ready. The creature's identity IS its evolved feature.",
 };
 
 const EVO_IMAGE_PROMPT = (
@@ -35,10 +37,7 @@ EVOLUTION DESIGN GUIDELINES:
 Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
 
 /** Stripped-down fallback prompt without GPT appearance text that may have triggered moderation */
-const EVO_IMAGE_FALLBACK_PROMPT = (
-  name: string,
-  stage: number,
-) =>
+const EVO_IMAGE_FALLBACK_PROMPT = (name: string, stage: number) =>
   `A 16-bit SNES-style pixel art monster named "${name}". This is the stage ${stage} evolved form. ${STAGE_DESCRIPTORS[stage]}
 Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`;
 
@@ -52,7 +51,7 @@ const EVO_STATS_PROMPT = (
   currentWeight: number | null,
   currentBackstory: string,
 ) =>
-  `You are a creature designer. Generate evolved stats, appearance, Pokedex entry, and ${stage >= 3 ? 'three' : 'two'} upgraded battle moves for a stage ${stage} monster named "${name}".
+  `You are a creature designer. Generate evolved stats, appearance, Pokedex entry, and ${stage >= 3 ? 'three' : 'two'} upgraded battle moves for a stage ${stage} monster named "${name}".${stage === 1 ? '\nThis creature was HATCHED FROM AN EGG and is growing from a tiny hatchling (stage 0) into a proper baby creature (stage 1). It should still be small and cute but more capable.' : ''}
 ${currentAppearance ? `Current appearance (stage ${stage - 1}): "${currentAppearance}"` : ''}
 ${currentBackstory ? `Current backstory: "${currentBackstory}"` : ''}
 ${bodyType ? `Previous body type: ${bodyType}` : ''}
@@ -68,9 +67,7 @@ Return ONLY a JSON object with these fields:
 }
 Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }
 
-WEIGHT: The evolved form's weight in kg. The creature has grown — ${currentWeight ? `previous form weighed ${currentWeight} kg` : 'estimate based on the design'}.
-
-STATS: Integers 30-${stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
+STATS: Integers 30-${stage === 1 ? 100 : stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
 
 BACKSTORY: Write a new Pokedex-style field observation for this evolved form — 1-2 sentences. Think nature documentary narrated by a fascinated researcher. The backstory should BUILD on the previous one and explain WHY the creature evolved the way it did.
 
@@ -97,8 +94,16 @@ ${stage === 2 ? `Good stage 2 evolutions: the signature feature develops and bec
 
 1-2 vivid sentences. Focus on what makes this evolved form visually distinct from the previous stage.
 
+APPEARANCE: Describe how the creature has evolved visually. Follow these rules inspired by how real Pokemon evolve (e.g. Treecko → Grovyle → Sceptile):
+- SAME exact color palette as the current appearance. Do NOT change or add colors.
+- The creature's signature/distinctive feature from stage ${stage - 1} must GROW and become more prominent:
+${stage === 1 ? '  - The hatchling traits are becoming more defined. Still tiny and cute but recognizable as a proper creature now.' : stage === 2 ? '  - What was a small decorative trait is now a functional, eye-catching feature. The body is leaner and more agile.' : "  - The feature now DOMINATES the design — it IS the creature's identity and signature ability. The body is fully mature, powerful, and commanding."}
+- Same body type and proportions, just ${stage === 1 ? 'slightly bigger and sturdier' : stage === 2 ? 'taller and sleeker' : 'larger, stronger, and more imposing'}.
+- 1-2 vivid sentences. Mention the specific colors from the current appearance by name.
+
 MOVES: Evolve the current moves into stronger thematic versions. The move names should reflect the creature's growing power and its signature feature.
-${stage === 2 ? '- Moves should feel stronger and more confident — the creature is growing into its power. Hits land harder, abilities are more controlled.' : '- Moves should feel devastating, overwhelming — the creature has reached full power and mastery.\n- Stage 3 gets a THIRD move! Add a new move with a different effect type from the first two. This represents the creature unlocking its ultimate ability at apex form.'}
+${stage === 1 ? '- Moves should feel like a baby creature growing into its abilities — still cute but becoming capable.' : stage === 2 ? '- Moves should feel faster, sharper, more confident — the creature is coming into its own.' : '- Moves should feel devastating, masterful — the creature has fully mastered its abilities.\n- Stage 3 gets a THIRD move! Add a new move with a different effect type from the first two. This represents the creature unlocking a new ability at its apex form.'}
+${stage === 2 ? '- Moves should feel stronger and more confident — the creature is growing into its power. Hits land harder, abilities are more controlled.' : '- Moves should feel devastating, overwhelming — the creature has reached full power and mastery.'}
 Keep the same effect types as the current moves for the first two. All moves MUST have DIFFERENT effect types.
 Effect types:
 - "strike": Reliable damage. Accuracy 0.85-1.0. Melee contact moves should be 1.0, ranged projectile moves (blasts, beams, thrown objects) should be lower.
@@ -150,6 +155,7 @@ export async function POST(req: Request) {
 
     // Check threshold
     const thresholdKey = `evo_threshold_${toStage}` as
+      | 'evo_threshold_1'
       | 'evo_threshold_2'
       | 'evo_threshold_3';
     const threshold = monster[thresholdKey];
@@ -160,7 +166,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const config = STAGE_CONFIG[toStage as 2 | 3];
+    const config = STAGE_CONFIG[toStage as 1 | 2 | 3];
     const currentMoves: Move[] = Array.isArray(monster.moves)
       ? monster.moves
       : [];
@@ -195,13 +201,19 @@ export async function POST(req: Request) {
       backstory: string;
       appearance: string;
       weight?: number;
-      moves: { name: string; effect: string; category: string; accuracy?: number }[];
+      moves: {
+        name: string;
+        effect: string;
+        category: string;
+        accuracy?: number;
+      }[];
     };
     const stats = normalizeStats(raw, config.budget, config.maxStat);
     const backstory =
       typeof raw.backstory === 'string' ? raw.backstory : monster.backstory;
     const appearance = typeof raw.appearance === 'string' ? raw.appearance : '';
-    const weight = typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
+    const weight =
+      typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
     const moves = normalizeMoves(raw.moves, toStage);
     const passive = assignPassive(stats);
 
@@ -244,10 +256,15 @@ export async function POST(req: Request) {
         const imgResponse = await fetch(monster.image_url);
         if (imgResponse.ok) {
           const imgBlob = await imgResponse.blob();
-          previousImageFile = new File([imgBlob], 'previous.png', { type: 'image/png' });
+          previousImageFile = new File([imgBlob], 'previous.png', {
+            type: 'image/png',
+          });
         }
       } catch (fetchErr) {
-        console.warn('Could not fetch previous sprite for reference:', fetchErr);
+        console.warn(
+          'Could not fetch previous sprite for reference:',
+          fetchErr,
+        );
       }
     }
 
@@ -271,7 +288,12 @@ export async function POST(req: Request) {
         });
       }
     } catch (imgErr: unknown) {
-      const err = imgErr as { code?: string; status?: number; error?: unknown; message?: string };
+      const err = imgErr as {
+        code?: string;
+        status?: number;
+        error?: unknown;
+        message?: string;
+      };
       console.error('Image generation failed:', {
         code: err.code,
         status: err.status,

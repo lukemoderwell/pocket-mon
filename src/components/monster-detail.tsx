@@ -3,7 +3,12 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import type { LeaderboardEntry, MoveEffect, PassiveAbility, StageSnapshot } from '@/lib/types';
+import type {
+  LeaderboardEntry,
+  MoveEffect,
+  PassiveAbility,
+  StageSnapshot,
+} from '@/lib/types';
 import { PASSIVE_NAMES, PASSIVE_DESCRIPTIONS } from '@/lib/passive-abilities';
 
 interface MonsterDetailProps {
@@ -64,10 +69,12 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
       {/* Evolution stage selector — just tappable diamonds */}
       {hasHistory && (
         <div className="flex items-center gap-3">
-          {[1, 2, 3].map((s) => {
+          {[0, 1, 2, 3].map((s) => {
             const exists = stageData.has(s);
             const isViewing = s === viewingStage;
             const isReached = s <= entry.stage;
+
+            if (s === 0 && !exists) return null;
 
             return (
               <button
@@ -76,16 +83,22 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
                 disabled={!exists}
                 className={`relative p-2 text-base transition-all ${
                   isViewing
-                    ? 'text-retro-gold scale-150'
+                    ? s === 0
+                      ? 'text-pink-400 scale-150'
+                      : 'text-retro-gold scale-150'
                     : isReached && exists
-                      ? 'text-retro-gold/40 active:scale-125'
+                      ? s === 0
+                        ? 'text-pink-400/40 active:scale-125'
+                        : 'text-retro-gold/40 active:scale-125'
                       : 'text-retro-white/15'
                 } ${exists ? 'cursor-pointer' : 'cursor-default'}`}
               >
-                ◆
-                <span className={`absolute inset-0 flex items-center justify-center font-retro text-[6px] ${
-                  isViewing ? 'text-retro-black' : 'text-retro-black/60'
-                }`}>
+                {s === 0 ? '\u2662' : '\u2666'}
+                <span
+                  className={`absolute inset-0 flex items-center justify-center font-retro text-[6px] ${
+                    isViewing ? 'text-retro-black' : 'text-retro-black/60'
+                  }`}
+                >
                   {s}
                 </span>
               </button>
@@ -125,20 +138,19 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         </button>
         {!hasHistory && (
           <div className="flex gap-0.5">
-            {entry.evo_threshold_2 != null ? (
-              [1, 2, 3].map((s) => (
-                <span
-                  key={s}
-                  className={`text-[10px] ${
-                    s <= entry.stage ? 'text-retro-gold' : 'text-retro-white/20'
-                  }`}
-                >
-                  ◆
-                </span>
-              ))
-            ) : (
-              <span className="text-[10px] text-retro-gold">◆</span>
+            {entry.stage === 0 && (
+              <span className="text-[10px] text-pink-400">{'\u2662'}</span>
             )}
+            {[1, 2, 3].map((s) => (
+              <span
+                key={s}
+                className={`text-[10px] ${
+                  s <= entry.stage ? 'text-retro-gold' : 'text-retro-white/20'
+                }`}
+              >
+                {'\u2666'}
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -218,7 +230,9 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
                 <span>
                   ACC{' '}
                   <span className="text-retro-blue">
-                    {move.accuracy != null ? `${Math.round(move.accuracy * 100)}%` : '100%'}
+                    {move.accuracy != null
+                      ? `${Math.round(move.accuracy * 100)}%`
+                      : '100%'}
                   </span>
                 </span>
                 <span>

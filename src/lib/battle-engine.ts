@@ -1,6 +1,20 @@
 import type { Monster, Move, PassiveAbility } from './types';
 import { getDefaultMoves } from './normalize-moves';
 
+/**
+ * Check if two monsters are allowed to battle each other.
+ * Stage 0 (hatchlings) can only fight stage 0 or stage 1 opponents.
+ */
+export function canBattleAgainst(a: Monster, b: Monster): { ok: boolean; reason?: string } {
+  if (a.stage === 0 && b.stage > 1) {
+    return { ok: false, reason: `${a.name} is a hatchling and can only battle stage 0-1 creatures` };
+  }
+  if (b.stage === 0 && a.stage > 1) {
+    return { ok: false, reason: `${b.name} is a hatchling and can only battle stage 0-1 creatures` };
+  }
+  return { ok: true };
+}
+
 export interface BattleRound {
   attacker: string;
   defender: string;

@@ -13,6 +13,7 @@ import { MonsterDetailSheet } from '@/components/monster-detail-sheet';
 import { MatchFight } from '@/components/match-fight';
 import { EvolutionCutscene } from '@/components/evolution-cutscene';
 import { fetchMonstersWithStats, toMonster } from '@/lib/fetch-monsters';
+import { canBattleAgainst } from '@/lib/battle-engine';
 import type { LeaderboardEntry, Monster } from '@/lib/types';
 
 const PLAYER_OPTIONS = [2, 3, 4, 5, 6, 7, 8];
@@ -63,10 +64,16 @@ export default function Home() {
 
   function startQuickBattle() {
     if (!selectedMonster) return;
-    const others = leaderboard.filter((m) => m.id !== selectedMonster.id);
+    const myMonster = toMonster(selectedMonster);
+    // Filter opponents by stage compatibility (stage 0 can only fight stage 0-1)
+    const others = leaderboard.filter((m) => {
+      if (m.id === selectedMonster.id) return false;
+      const opp = toMonster(m);
+      return canBattleAgainst(myMonster, opp).ok;
+    });
     if (others.length === 0) return;
     const opponent = others[Math.floor(Math.random() * others.length)];
-    setBattleMonster(toMonster(selectedMonster));
+    setBattleMonster(myMonster);
     setOpponentMonster(toMonster(opponent));
     setSelectedMonster(null);
     setMode('fighting');
@@ -77,7 +84,7 @@ export default function Home() {
 
     const { data: fresh } = await supabase
       .from('monsters')
-      .select('stage, evo_threshold_2, evo_threshold_3')
+      .select('stage, evo_threshold_1, evo_threshold_2, evo_threshold_3')
       .eq('id', monster.id)
       .single();
 
@@ -87,7 +94,11 @@ export default function Home() {
     if (stage >= 3) return false;
 
     const threshold =
-      stage === 1 ? fresh.evo_threshold_2 : fresh.evo_threshold_3;
+      stage === 0
+        ? fresh.evo_threshold_1
+        : stage === 1
+          ? fresh.evo_threshold_2
+          : fresh.evo_threshold_3;
     if (threshold == null) return false;
 
     const { count } = await supabase
@@ -269,22 +280,23 @@ export default function Home() {
                         {entry.monster_name}
                       </span>
                       <div className="flex gap-0.5 shrink-0">
-                        {entry.evo_threshold_2 != null ? (
-                          [1, 2, 3].map((s) => (
-                            <span
-                              key={s}
-                              className={`text-[6px] ${
-                                s <= entry.stage
-                                  ? 'text-retro-gold'
-                                  : 'text-retro-white/20'
-                              }`}
-                            >
-                              ◆
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-[6px] text-retro-gold">◆</span>
+                        {entry.stage === 0 && (
+                          <span className="text-[6px] text-pink-400">
+                            &#9826;
+                          </span>
                         )}
+                        {[1, 2, 3].map((s) => (
+                          <span
+                            key={s}
+                            className={`text-[6px] ${
+                              s <= entry.stage
+                                ? 'text-retro-gold'
+                                : 'text-retro-white/20'
+                            }`}
+                          >
+                            &#9670;
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <div className="flex gap-3 font-retro text-[7px]">

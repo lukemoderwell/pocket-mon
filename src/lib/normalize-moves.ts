@@ -11,6 +11,7 @@ const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; coo
 
 /** Higher stages get a small power ceiling boost */
 const STAGE_BONUS: Record<number, number> = {
+  0: -0.1,
   1: 0,
   2: 0.1,
   3: 0.2,

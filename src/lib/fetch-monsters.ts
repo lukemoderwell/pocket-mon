@@ -17,6 +17,7 @@ export function toMonster(entry: LeaderboardEntry): Monster {
     moves: entry.moves,
     stage: entry.stage,
     evolution_history: entry.evolution_history ?? [],
+    evo_threshold_1: null,
     evo_threshold_2: null,
     evo_threshold_3: null,
     created_at: entry.created_at,

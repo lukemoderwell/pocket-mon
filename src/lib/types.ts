@@ -63,6 +63,7 @@ export interface Monster {
   gender?: MonsterGender;
   stage: number;
   evolution_history: StageSnapshot[];
+  evo_threshold_1: number | null;
   evo_threshold_2: number | null;
   evo_threshold_3: number | null;
   body_type?: BodyType;

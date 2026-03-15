@@ -68,6 +68,9 @@ function StageIndicator({ stage, canEvolve }: { stage: number; canEvolve: boolea
   }
   return (
     <div className="flex gap-0.5">
+      {stage === 0 && (
+        <span className="text-[8px] text-pink-400">{'\u2662'}</span>
+      )}
       {[1, 2, 3].map((s) => (
         <span
           key={s}
@@ -75,7 +78,7 @@ function StageIndicator({ stage, canEvolve }: { stage: number; canEvolve: boolea
             s <= stage ? "text-retro-gold" : "text-retro-white/20"
           }`}
         >
-          ◆
+          {'\u2666'}
         </span>
       ))}
     </div>

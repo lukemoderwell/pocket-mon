@@ -163,8 +163,11 @@ export default function BreedPage() {
           className="flex flex-col items-center gap-4"
         >
           <p className="font-retro text-[10px] text-retro-white/60">
-            A new creature was born!
+            A hatchling was born!
           </p>
+          <span className="font-retro text-[7px] text-pink-400 border border-pink-400/40 px-2 py-0.5">
+            Stage 0 - Hatchling
+          </span>
 
           <div className="relative h-40 w-40 overflow-hidden border-4 border-retro-gold bg-[#4a90d9]">
             <Image
@@ -226,6 +229,9 @@ export default function BreedPage() {
           {/* Parents */}
           <p className="font-retro text-[7px] text-retro-white/30 mt-2">
             Parents: {parentA?.name} + {parentB?.name}
+          </p>
+          <p className="font-retro text-[7px] text-retro-green/60 mt-1">
+            Evolves 3 times: 0 &rarr; 1 &rarr; 2 &rarr; 3
           </p>
         </motion.div>
 

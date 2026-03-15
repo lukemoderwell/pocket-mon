@@ -8,10 +8,10 @@ import type { Monster, Move } from "@/lib/types";
 
 const openai = new OpenAI();
 
-const STAT_BUDGET = 340; // Stage 1 budget
+const STAT_BUDGET = 260; // Stage 0 hatchling budget (weaker than stage 1's 340)
 
 const IMAGE_PROMPT = (name: string, appearance: string) =>
-  `A 16-bit SNES-style pixel art creature named "${name}". ${appearance}. Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette, friendly rounded proportions even if tough. This is a baby creature — small, cute, and newly hatched. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
+  `A 16-bit SNES-style pixel art creature named "${name}". ${appearance}. Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette, friendly rounded proportions even if tough. This is a TINY HATCHLING creature — very small, extremely cute, just born from an egg. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
 
 const OFFSPRING_PROMPT = (
   name: string,
@@ -39,13 +39,13 @@ Return ONLY a JSON object with these fields:
   "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }]
 }
 
-STATS: Integers 30-100. Distribute exactly ${STAT_BUDGET} points across hp/attack/defense/sp_attack/speed. The baby's stats should loosely reflect a blend of its parents' strengths, but with baby-level values.
+STATS: Integers 30-80. Distribute exactly ${STAT_BUDGET} points across hp/attack/defense/sp_attack/speed. This is a STAGE 0 HATCHLING — much weaker than a normal stage 1 creature. Stats should be low but loosely reflect a blend of its parents' strengths.
 
 BACKSTORY: Write a Pokedex-style entry about this newly hatched creature. Mention traits it inherited from its parents. 1-2 sentences, nature-documentary tone.
 
-APPEARANCE: Describe the baby creature's visual design. It should blend features from both parents — maybe the mother's coloring with the father's body shape, or vice versa. Keep it small, cute, and baby-like. 1-2 vivid sentences.
+APPEARANCE: Describe the tiny hatchling's visual design. It should blend features from both parents — maybe the mother's coloring with the father's body shape, or vice versa. Keep it VERY small, extremely cute, and newborn-looking — this is a stage 0 hatchling, even smaller than a normal baby creature. 1-2 vivid sentences.
 
-MOVES: Create two baby-versions of the inherited parent moves. Keep the same effect types (${inheritedMoves.map((m) => m.effect).join(", ")}) but give them new names fitting the baby creature's theme. These are weaker, cuter versions of the parent moves.
+MOVES: Create two tiny hatchling-versions of the inherited parent moves. Keep the same effect types (${inheritedMoves.map((m) => m.effect).join(", ")}) but give them new names fitting the hatchling's theme. These are much weaker, cuter versions of the parent moves — a hatchling's first attempts at using its abilities.
 Effect types:
 - "strike": Reliable damage. Accuracy 0.85-1.0.
 - "guard": Defensive. Always accuracy 1.0.
@@ -124,10 +124,10 @@ export async function POST(req: Request) {
       moves: { name: string; effect: string; category: string; accuracy?: number }[];
     };
 
-    const stats = normalizeStats(raw, STAT_BUDGET, 100);
+    const stats = normalizeStats(raw, STAT_BUDGET, 80);
     const backstory = typeof raw.backstory === "string" ? raw.backstory : "";
     const appearance = typeof raw.appearance === "string" ? raw.appearance : "";
-    const moves = normalizeMoves(raw.moves, 1);
+    const moves = normalizeMoves(raw.moves, 0);
     const passive = inheritedPassive ?? undefined;
     const gender = Math.random() < 0.5 ? "male" : "female";
 
@@ -177,11 +177,12 @@ export async function POST(req: Request) {
       data: { publicUrl },
     } = supabase.storage.from("monsters").getPublicUrl(fileName);
 
-    // Generate evolution thresholds for the offspring
-    const evo_threshold_2 = Math.floor(Math.random() * 6) + 5;
-    const evo_threshold_3 = Math.floor(Math.random() * 16) + 15;
+    // Generate evolution thresholds for the offspring (3 evolutions: 0→1→2→3)
+    const evo_threshold_1 = Math.floor(Math.random() * 3) + 3;   // 3-5 wins for stage 0→1
+    const evo_threshold_2 = Math.floor(Math.random() * 6) + 8;   // 8-13 wins for stage 1→2
+    const evo_threshold_3 = Math.floor(Math.random() * 11) + 18; // 18-28 wins for stage 2→3
 
-    // Insert offspring into database
+    // Insert offspring into database at stage 0 (hatchling)
     const { data: monster, error: insertError } = await supabase
       .from("monsters")
       .insert({
@@ -197,7 +198,8 @@ export async function POST(req: Request) {
         moves,
         passive,
         gender,
-        stage: 1,
+        stage: 0,
+        evo_threshold_1,
         evo_threshold_2,
         evo_threshold_3,
       })
