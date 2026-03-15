@@ -25,9 +25,11 @@ const EVO_IMAGE_PROMPT = (
   stage: number,
   appearance: string,
   previousAppearance: string,
+  bodyType: string | null,
 ) =>
   `A 16-bit SNES-style pixel art monster named "${name}".
 Previous form (stage ${stage - 1}): "${previousAppearance}"
+${bodyType ? `Body type: ${bodyType} (keep the same body plan)` : ''}
 Evolved form (stage ${stage}): ${appearance || STAGE_DESCRIPTORS[stage]}
 EVOLUTION DESIGN GUIDELINES:
 - Keep the SAME color palette. Do NOT change the core colors.
@@ -67,7 +69,9 @@ Return ONLY a JSON object with these fields:
 }
 Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }
 
+
 STATS: Integers 30-${stage === 1 ? 100 : stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
+WEIGHT: The evolved form's weight in kg. ${stage === 2 ? 'Stage 2 creatures are typically 1.5-3x heavier than their baby form as they grow.' : 'Stage 3 creatures are typically 2-4x heavier than stage 2, reflecting full maturity.'} ${currentWeight ? `The previous form weighed ${currentWeight} kg.` : ''}
 
 BACKSTORY: Write a new Pokedex-style field observation for this evolved form — 1-2 sentences. Think nature documentary narrated by a fascinated researcher. The backstory should BUILD on the previous one and explain WHY the creature evolved the way it did.
 
@@ -304,7 +308,17 @@ export async function POST(req: Request) {
         console.warn('Retrying with simplified prompt');
         imageResult = await openai.images.generate({
           model: 'gpt-image-1',
-          prompt: `A 16-bit SNES-style pixel art creature named "${monster.name}". Stage ${toStage} evolved form. Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading, simple readable silhouette, large expressive eyes. No text or UI elements.`,
+          prompt: EVO_IMAGE_FALLBACK_PROMPT(monster.name, toStage),
+          n: 1,
+          size: '1024x1024',
+          quality: 'medium',
+        });
+      } else if (previousImageFile) {
+        // If edit with reference failed for non-moderation reason, retry without reference
+        console.warn('Retrying without image reference');
+        imageResult = await openai.images.generate({
+          model: 'gpt-image-1',
+          prompt: evoPrompt,
           n: 1,
           size: '1024x1024',
           quality: 'medium',
