@@ -7,16 +7,18 @@ const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; coo
   rush:   { minPower: 1.2, maxPower: 1.75, cooldown: 2, minAccuracy: 0.6,  maxAccuracy: 0.8 },
   drain:  { minPower: 0.8, maxPower: 1.1, cooldown: 1, minAccuracy: 0.8,  maxAccuracy: 0.95 },
   stun:   { minPower: 0.5, maxPower: 0.8, cooldown: 2, minAccuracy: 0.7,  maxAccuracy: 0.9 },
+  charge: { minPower: 1.5, maxPower: 2.2, cooldown: 3, minAccuracy: 0.75, maxAccuracy: 0.95 },
 };
 
 /** Higher stages get a small power ceiling boost */
 const STAGE_BONUS: Record<number, number> = {
+  0: -0.1,
   1: 0,
   2: 0.1,
   3: 0.2,
 };
 
-const VALID_EFFECTS: MoveEffect[] = ["strike", "guard", "rush", "drain", "stun"];
+const VALID_EFFECTS: MoveEffect[] = ["strike", "guard", "rush", "drain", "stun", "charge"];
 const VALID_CATEGORIES: MoveCategory[] = ["physical", "special"];
 
 /**
@@ -52,7 +54,16 @@ export function normalizeMove(raw: Partial<Move>, stage: number): Move {
   // Rush moves always have priority (go first regardless of speed)
   const priority = effect === "rush" ? true : undefined;
 
-  return { name, effect, category, power, cooldown: rules.cooldown, accuracy, ...(priority ? { priority } : {}) };
+  // Charge moves get a validated chargeVariant
+  const chargeVariant = effect === "charge"
+    ? (raw.chargeVariant === "defensive" ? "defensive" : "vulnerable")
+    : undefined;
+
+  return {
+    name, effect, category, power, cooldown: rules.cooldown, accuracy,
+    ...(priority ? { priority } : {}),
+    ...(chargeVariant ? { chargeVariant } : {}),
+  };
 }
 
 /**
@@ -67,6 +78,20 @@ export function normalizeMoves(rawMoves: unknown, stage: number): Move[] {
 
   const maxMoves = stage >= 3 ? 3 : 2;
   const moves = rawMoves.slice(0, maxMoves).map((m) => normalizeMove(m, stage));
+
+  // At most 1 charge move per monster
+  let hasCharge = false;
+  for (const m of moves) {
+    if (m.effect === "charge") {
+      if (hasCharge) {
+        m.effect = "strike";
+        m.power = Math.min(m.power, 1.2);
+        m.cooldown = 0;
+        delete (m as Partial<Move>).chargeVariant;
+      }
+      hasCharge = true;
+    }
+  }
 
   // Pad to 2 if only 1 was provided
   if (moves.length < 2) {

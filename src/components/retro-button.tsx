@@ -21,7 +21,7 @@ export function RetroButton({
     "font-retro text-xs px-6 py-3 uppercase tracking-wider transition-all active:translate-y-1 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed disabled:active:translate-y-0";
   const variants = {
     primary:
-      "bg-retro-accent text-white shadow-[4px_4px_0_0_rgba(0,0,0,0.5)] hover:brightness-110",
+      "bg-retro-accent text-white border-2 border-retro-accent shadow-[4px_4px_0_0_rgba(0,0,0,0.5)] hover:brightness-110",
     secondary:
       "bg-retro-dark text-retro-white border-2 border-retro-white shadow-[4px_4px_0_0_rgba(0,0,0,0.5)] hover:bg-retro-mid",
   };

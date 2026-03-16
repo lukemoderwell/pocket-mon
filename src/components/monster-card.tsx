@@ -27,6 +27,15 @@ export function MonsterCard({ monster, highlight, compact }: MonsterCardProps) {
         </div>
         <div className="flex items-center gap-2">
           <h3 className="font-retro text-xs text-retro-gold">{monster.name}</h3>
+          {monster.gender && (
+            <span
+              className={`text-[8px] ${
+                monster.gender === 'male' ? 'text-retro-blue' : 'text-pink-400'
+              }`}
+            >
+              {monster.gender === 'male' ? '\u2642' : '\u2640'}
+            </span>
+          )}
           <StageIndicator stage={monster.stage} canEvolve={monster.evo_threshold_2 != null} />
         </div>
         <div className="grid w-full grid-cols-2 gap-x-4 gap-y-1 text-[8px]">
@@ -68,6 +77,9 @@ function StageIndicator({ stage, canEvolve }: { stage: number; canEvolve: boolea
   }
   return (
     <div className="flex gap-0.5">
+      {stage === 0 && (
+        <span className="text-[8px] text-pink-400">{'\u2662'}</span>
+      )}
       {[1, 2, 3].map((s) => (
         <span
           key={s}
@@ -75,7 +87,7 @@ function StageIndicator({ stage, canEvolve }: { stage: number; canEvolve: boolea
             s <= stage ? "text-retro-gold" : "text-retro-white/20"
           }`}
         >
-          ◆
+          {'\u2666'}
         </span>
       ))}
     </div>
@@ -105,6 +117,7 @@ const EFFECT_COLORS: Record<MoveEffect, string> = {
   rush: "text-retro-accent bg-retro-accent/10",
   drain: "text-retro-green bg-retro-green/10",
   stun: "text-yellow-400 bg-yellow-400/10",
+  charge: "text-retro-gold bg-retro-gold/10",
 };
 
 function MoveEffectBadge({ effect }: { effect: MoveEffect }) {

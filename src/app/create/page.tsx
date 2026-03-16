@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "motion/react";
-import { useGameStore } from "@/lib/store";
-import { RetroButton } from "@/components/retro-button";
-import { RetroCard } from "@/components/retro-card";
-import { MonsterCard } from "@/components/monster-card";
-import type { Monster } from "@/lib/types";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'motion/react';
+import { useGameStore } from '@/lib/store';
+import { RetroButton } from '@/components/retro-button';
+import { RetroCard } from '@/components/retro-card';
+import { MonsterCard } from '@/components/monster-card';
+import type { Monster } from '@/lib/types';
 
 export default function CreatePage() {
   const router = useRouter();
@@ -24,8 +24,9 @@ export default function CreatePage() {
     initTournament,
   } = useGameStore();
 
-  const [monsterName, setMonsterName] = useState("");
-  const [error, setError] = useState("");
+  const [monsterName, setMonsterName] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | ''>('');
+  const [error, setError] = useState('');
 
   // Have all players submitted their names?
   const allSubmitted = currentPlayerIndex >= playerCount;
@@ -40,44 +41,49 @@ export default function CreatePage() {
 
     // Store player name
     setPlayerName(idx, name);
-    setGenStatus(idx, "generating");
+    setGenStatus(idx, 'generating');
 
     // Fire-and-forget: generation happens in background
-    generateMonster(idx, name);
+    generateMonster(idx, name, gender || undefined);
 
     // Immediately advance UI
-    setMonsterName("");
-    setError("");
+    setMonsterName('');
+    setGender('');
+    setError('');
     advancePlayer();
   }
 
-  async function generateMonster(idx: number, name: string) {
+  async function generateMonster(
+    idx: number,
+    name: string,
+    gender?: 'male' | 'female',
+  ) {
     try {
-      const res = await fetch("/api/generate-monster", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+      const res = await fetch('/api/generate-monster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, ...(gender && { gender }) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
       setPlayerMonster(idx, data.monster as Monster);
-      setGenStatus(idx, "ready");
+      setGenStatus(idx, 'ready');
     } catch {
-      setGenStatus(idx, "error");
+      setGenStatus(idx, 'error');
     }
   }
 
   function handleRetry(idx: number) {
     const name = players[idx].name;
     if (!name) return;
-    setGenStatus(idx, "generating");
+    setGenStatus(idx, 'generating');
     generateMonster(idx, name);
   }
 
   function handleStartTournament() {
     initTournament();
-    router.push("/battle");
+    router.push('/battle');
   }
 
   const ready = allMonstersReady();
@@ -88,9 +94,7 @@ export default function CreatePage() {
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
         <h1 className="font-retro text-sm text-retro-gold">Waiting Room</h1>
         <p className="font-retro text-[8px] text-retro-white/50">
-          {ready
-            ? "All monsters ready!"
-            : "Monsters are being generated..."}
+          {ready ? 'All monsters ready!' : 'Monsters are being generated...'}
         </p>
 
         <div className="w-full max-w-xs flex flex-col gap-3">
@@ -106,7 +110,7 @@ export default function CreatePage() {
                   </p>
                 </div>
                 <StatusBadge status={genStatus[i]} />
-                {genStatus[i] === "error" && (
+                {genStatus[i] === 'error' && (
                   <RetroButton
                     variant="secondary"
                     onClick={() => handleRetry(i)}
@@ -116,10 +120,10 @@ export default function CreatePage() {
                   </RetroButton>
                 )}
               </div>
-              {genStatus[i] === "ready" && player.monster && (
+              {genStatus[i] === 'ready' && player.monster && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
+                  animate={{ height: 'auto', opacity: 1 }}
                   className="mt-3 overflow-hidden"
                 >
                   <MonsterCard monster={player.monster} />
@@ -165,6 +169,32 @@ export default function CreatePage() {
             autoFocus
           />
 
+          <div>
+            <label className="font-retro text-[8px] text-retro-white/60 mb-2 block">
+              Gender (optional)
+            </label>
+            <div className="flex gap-2">
+              {(['male', 'female', ''] as const).map((option) => (
+                <button
+                  key={option || 'any'}
+                  type="button"
+                  onClick={() => setGender(option)}
+                  className={`flex-1 border-2 px-2 py-1 font-retro text-[8px] transition-colors ${
+                    gender === option
+                      ? 'border-retro-accent bg-retro-accent/20 text-retro-accent'
+                      : 'border-retro-white/30 bg-transparent text-retro-white/50 hover:border-retro-white/60'
+                  }`}
+                >
+                  {option === 'male'
+                    ? '♂ Male'
+                    : option === 'female'
+                      ? '♀ Female'
+                      : '? Random'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {error && (
             <p className="font-retro text-[8px] text-retro-accent">{error}</p>
           )}
@@ -182,10 +212,10 @@ export default function CreatePage() {
             key={i}
             className={`w-2 h-2 border border-retro-white/40 ${
               i < currentPlayerIndex
-                ? "bg-retro-gold"
+                ? 'bg-retro-gold'
                 : i === currentPlayerIndex
-                  ? "bg-retro-accent"
-                  : "bg-transparent"
+                  ? 'bg-retro-accent'
+                  : 'bg-transparent'
             }`}
           />
         ))}
@@ -196,11 +226,14 @@ export default function CreatePage() {
 
 function StatusBadge({ status }: { status: string }) {
   const config = {
-    idle: { text: "Waiting", color: "text-retro-white/40" },
-    generating: { text: "Generating...", color: "text-retro-gold animate-pulse" },
-    ready: { text: "Ready!", color: "text-retro-green" },
-    error: { text: "Failed", color: "text-retro-accent" },
-  }[status] ?? { text: status, color: "text-retro-white/40" };
+    idle: { text: 'Waiting', color: 'text-retro-white/40' },
+    generating: {
+      text: 'Generating...',
+      color: 'text-retro-gold animate-pulse',
+    },
+    ready: { text: 'Ready!', color: 'text-retro-green' },
+    error: { text: 'Failed', color: 'text-retro-accent' },
+  }[status] ?? { text: status, color: 'text-retro-white/40' };
 
   return (
     <span className={`font-retro text-[8px] ${config.color}`}>

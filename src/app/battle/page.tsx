@@ -58,7 +58,7 @@ export default function BattlePage() {
     // Fetch fresh monster data from DB to ensure thresholds are current
     const { data: fresh, error: fetchError } = await supabase
       .from("monsters")
-      .select("stage, evo_threshold_2, evo_threshold_3")
+      .select("stage, evo_threshold_1, evo_threshold_2, evo_threshold_3")
       .eq("id", monster.id)
       .single();
 
@@ -71,7 +71,7 @@ export default function BattlePage() {
     if (stage >= 3) return false;
 
     const threshold =
-      stage === 1 ? fresh.evo_threshold_2 : fresh.evo_threshold_3;
+      stage === 0 ? fresh.evo_threshold_1 : stage === 1 ? fresh.evo_threshold_2 : fresh.evo_threshold_3;
     if (threshold == null) return false;
 
     // Count total wins for this monster

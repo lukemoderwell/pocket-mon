@@ -1,6 +1,20 @@
 import type { Monster, Move, PassiveAbility } from './types';
 import { getDefaultMoves } from './normalize-moves';
 
+/**
+ * Check if two monsters are allowed to battle each other.
+ * Stage 0 (hatchlings) can only fight other stage 0 hatchlings.
+ */
+export function canBattleAgainst(a: Monster, b: Monster): { ok: boolean; reason?: string } {
+  if (a.stage === 0 && b.stage !== 0) {
+    return { ok: false, reason: `${a.name} is a hatchling and can only battle other hatchlings` };
+  }
+  if (b.stage === 0 && a.stage !== 0) {
+    return { ok: false, reason: `${b.name} is a hatchling and can only battle other hatchlings` };
+  }
+  return { ok: true };
+}
+
 export interface BattleRound {
   attacker: string;
   defender: string;
@@ -16,6 +30,9 @@ export interface BattleRound {
   missed: boolean;
   critical: boolean; // true if this hit was a critical hit
   passiveTriggered: string | null; // passive ability name that activated, if any
+  charging: boolean;         // true if this round is a charge-up turn
+  chargeVariant: string | null; // "vulnerable" | "defensive" | null
+  chargeRelease: boolean;    // true if this round is the release turn
 }
 
 export interface BattleResult {
@@ -33,6 +50,8 @@ interface FighterState {
   defenseModifier: number; // 1.0 = normal, 0.3 = guarded, 1.25 = exposed
   guardHitsLeft: number; // how many incoming hits the guard buff absorbs (0 = no guard)
   stunned: boolean; // skip next turn
+  charging: boolean;
+  chargeMove: Move | null;
   passive: PassiveAbility | null;
 }
 
@@ -121,6 +140,21 @@ function selectMove(
     return { move: killShots[0].move, moveIndex: killShots[0].index };
   }
 
+  // --- PRIORITY 1.5: React to opponent charging ---
+  if (opponent.charging) {
+    if (opponent.chargeMove?.chargeVariant === 'vulnerable') {
+      // Free turn — use highest power move to punish
+      available.sort((a, b) => b.move.power - a.move.power);
+      return { move: available[0].move, moveIndex: available[0].index };
+    } else {
+      // Defensive charge incoming — guard up or drain to prepare
+      const guard = find('guard');
+      if (guard) return { move: guard.move, moveIndex: guard.index };
+      const drain = find('drain');
+      if (drain) return { move: drain.move, moveIndex: drain.index };
+    }
+  }
+
   // --- PRIORITY 2: Opponent is heavily guarded → don't waste big moves ---
   if (opponent.defenseModifier <= 0.5) {
     const stun = find('stun');
@@ -153,6 +187,17 @@ function selectMove(
     if (guard) return { move: guard.move, moveIndex: guard.index };
   }
 
+  // --- PRIORITY 6.5: Use charge move if conditions are favorable ---
+  const charge = find('charge');
+  if (charge && hpRatio > 0.5 && !opponent.charging) {
+    if (opponent.defenseModifier <= 0.5) {
+      return { move: charge.move, moveIndex: charge.index };
+    }
+    if (hpRatio > 0.7) {
+      return { move: charge.move, moveIndex: charge.index };
+    }
+  }
+
   // --- PRIORITY 7: Default → pick highest power available ---
   available.sort((a, b) => b.move.power - a.move.power);
   return { move: available[0].move, moveIndex: available[0].index };
@@ -183,6 +228,8 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       defenseModifier: 1.0,
       guardHitsLeft: 0,
       stunned: false,
+      charging: false,
+      chargeMove: null,
       passive: getPassive(m),
     };
   };
@@ -276,11 +323,14 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     const attacker = fighters[attackerIdx];
     const defender = fighters[defenderIdx];
 
-    // Check if stunned (passive: steady makes you immune)
+    // Check if stunned (passive: steady makes you immune, charging is unstoppable)
     if (attacker.stunned) {
       if (attacker.passive === 'steady') {
         attacker.stunned = false;
         // Steady monster shrugs off stun and acts normally
+      } else if (attacker.charging) {
+        // Charge is unstoppable — consume stun but keep going
+        attacker.stunned = false;
       } else {
         attacker.stunned = false;
         rounds.push({
@@ -298,9 +348,91 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
           missed: false,
           critical: false,
           passiveTriggered: null,
+          charging: false,
+          chargeVariant: null,
+          chargeRelease: false,
         });
         return;
       }
+    }
+
+    // If charging, auto-fire the charged move this turn
+    if (attacker.charging && attacker.chargeMove) {
+      const move = attacker.chargeMove;
+      attacker.charging = false;
+      attacker.chargeMove = null;
+
+      // Clear defensive guard buff if it was a defensive charge
+      if (attacker.guardHitsLeft > 0 && attacker.defenseModifier === 0.3) {
+        attacker.defenseModifier = 1.0;
+        attacker.guardHitsLeft = 0;
+      }
+
+      // Hit/miss check
+      if (!doesHit(attacker, defender, move)) {
+        rounds.push({
+          attacker: attacker.monster.name,
+          defender: defender.monster.name,
+          damage: 0,
+          attackerHp: attacker.hp,
+          defenderHp: defender.hp,
+          moveName: move.name,
+          moveEffect: move.effect,
+          moveCategory: move.category || 'physical',
+          healAmount: 0,
+          stunned: false,
+          wasStunned: false,
+          missed: true,
+          critical: false,
+          passiveTriggered: defender.passive === 'quick_feet' ? 'quick_feet' : null,
+          charging: false,
+          chargeVariant: null,
+          chargeRelease: true,
+        });
+        return;
+      }
+
+      const { damage, critical, passiveTriggered } = calcDamage(attacker, defender, move);
+      let healAmount = 0;
+      defender.hp = Math.max(0, defender.hp - damage);
+
+      // Consume guard on defender if active
+      if (defender.guardHitsLeft > 0) {
+        defender.guardHitsLeft -= 1;
+        if (defender.guardHitsLeft === 0) {
+          defender.defenseModifier = 1.0;
+        }
+      } else {
+        defender.defenseModifier = 1.0;
+      }
+
+      // Passive: vampiric
+      if (attacker.passive === 'vampiric') {
+        const vampHeal = Math.max(1, Math.round(damage * 0.1));
+        attacker.hp = Math.min(attacker.monster.hp, attacker.hp + vampHeal);
+        healAmount += vampHeal;
+      }
+
+      rounds.push({
+        attacker: attacker.monster.name,
+        defender: defender.monster.name,
+        damage,
+        attackerHp: attacker.hp,
+        defenderHp: defender.hp,
+        moveName: move.name,
+        moveEffect: move.effect,
+        moveCategory: move.category || 'physical',
+        healAmount,
+        stunned: false,
+        wasStunned: false,
+        missed: false,
+        critical,
+        passiveTriggered,
+        charging: false,
+        chargeVariant: null,
+        chargeRelease: true,
+      });
+      return;
     }
 
     const { move, moveIndex } = selectMove(attacker, defender);
@@ -308,6 +440,36 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     // Set cooldown for the used move (even on miss)
     if (moveIndex >= 0) {
       attacker.cooldowns[moveIndex] = move.cooldown;
+    }
+
+    // Charge moves: initiate charge, skip damage this turn
+    if (move.effect === 'charge') {
+      attacker.charging = true;
+      attacker.chargeMove = move;
+      if (move.chargeVariant === 'defensive') {
+        attacker.defenseModifier = 0.3;
+        attacker.guardHitsLeft = 2;
+      }
+      rounds.push({
+        attacker: attacker.monster.name,
+        defender: defender.monster.name,
+        damage: 0,
+        attackerHp: attacker.hp,
+        defenderHp: defender.hp,
+        moveName: move.name,
+        moveEffect: move.effect,
+        moveCategory: move.category || 'physical',
+        healAmount: 0,
+        stunned: false,
+        wasStunned: false,
+        missed: false,
+        critical: false,
+        passiveTriggered: null,
+        charging: true,
+        chargeVariant: move.chargeVariant || 'vulnerable',
+        chargeRelease: false,
+      });
+      return;
     }
 
     // Check accuracy + speed-based dodge
@@ -331,6 +493,9 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         missed: true,
         critical: false,
         passiveTriggered: defender.passive === 'quick_feet' ? 'quick_feet' : null,
+        charging: false,
+        chargeVariant: null,
+        chargeRelease: false,
       });
       return;
     }
@@ -388,6 +553,9 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       missed: false,
       critical,
       passiveTriggered,
+      charging: false,
+      chargeVariant: null,
+      chargeRelease: false,
     });
   };
 
@@ -400,10 +568,11 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
   // Battle loop (max 20 rounds to prevent infinite)
   for (let i = 0; i < 20; i++) {
     // Determine turn order for this round — priority moves override speed
-    const move0 = selectMove(fighters[0], fighters[1]);
-    const move1 = selectMove(fighters[1], fighters[0]);
-    const p0 = move0.move.priority && !fighters[0].stunned;
-    const p1 = move1.move.priority && !fighters[1].stunned;
+    // Charging fighters don't pick a new move (they auto-fire)
+    const move0 = fighters[0].charging ? { move: STRUGGLE, moveIndex: -1 } : selectMove(fighters[0], fighters[1]);
+    const move1 = fighters[1].charging ? { move: STRUGGLE, moveIndex: -1 } : selectMove(fighters[1], fighters[0]);
+    const p0 = move0.move.priority && !fighters[0].stunned && !fighters[0].charging;
+    const p1 = move1.move.priority && !fighters[1].stunned && !fighters[1].charging;
 
     // If only one side has priority, they go first. Otherwise default order.
     let firstIdx: 0 | 1 = 0;

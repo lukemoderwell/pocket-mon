@@ -11,7 +11,7 @@ import type { Monster, PassiveAbility } from "@/lib/types";
 
 type FightPhase = "intro" | "fighting" | "finished";
 
-type TurnPhase = "lunge" | "impact" | "damage" | "effect" | "idle";
+type TurnPhase = "lunge" | "impact" | "damage" | "effect" | "idle" | "charging";
 
 interface MatchFightProps {
   monsterA: Monster;
@@ -31,6 +31,7 @@ const EFFECT_CAPTIONS: Record<string, string> = {
   rush: "Left exposed!",
   drain: "Drained energy!",
   stun: "Stunned!",
+  charge: "Charging up!",
 };
 
 export function MatchFight({
@@ -104,6 +105,36 @@ export function MatchFight({
       return () => clearTimeout(timer);
     }
 
+    // Charge turn — pulsing glow, no attack
+    if (round.charging) {
+      setActiveAttacker(attackerSide as 0 | 1);
+      setTurnPhase("charging");
+      setCurrentCaption(`${round.attacker} is charging up ${round.moveName}!`);
+
+      const chargeTimers: ReturnType<typeof setTimeout>[] = [];
+
+      chargeTimers.push(setTimeout(() => {
+        if (round.chargeVariant === "defensive") {
+          setEffectCaption("Defense raised!");
+        }
+      }, 500));
+
+      chargeTimers.push(setTimeout(() => {
+        setTurnPhase("idle");
+        setActiveAttacker(null);
+        setEffectCaption(null);
+        setCurrentCaption(null);
+        setCurrentRound((r) => r + 1);
+      }, 1000));
+
+      return () => chargeTimers.forEach(clearTimeout);
+    }
+
+    // Release turn — enhanced caption
+    if (round.chargeRelease) {
+      setCurrentCaption(`${round.attacker} unleashes ${round.moveName}!`);
+    }
+
     // Phase 1: Lunge (200ms)
     setActiveAttacker(attackerSide as 0 | 1);
     setTurnPhase("lunge");
@@ -113,7 +144,7 @@ export function MatchFight({
     // Phase 2: Impact (after 200ms, lasts 300ms)
     timers.push(setTimeout(() => {
       setTurnPhase("impact");
-      if (round.moveEffect === "rush" || round.critical) setScreenShake(true);
+      if (round.moveEffect === "rush" || round.critical || round.chargeRelease) setScreenShake(true);
 
       // Update HP on impact
       if (hitTarget === 0) setHp1(round.defenderHp);
@@ -124,7 +155,7 @@ export function MatchFight({
     timers.push(setTimeout(() => {
       setScreenShake(false);
       setTurnPhase("damage");
-      setDamageNumber({ value: round.damage, target: hitTarget as 0 | 1, critical: round.critical });
+      setDamageNumber({ value: round.damage, target: hitTarget as 0 | 1, critical: round.critical || round.chargeRelease });
 
       if (round.healAmount > 0) {
         setHealNumber({ value: round.healAmount, target: attackerSide as 0 | 1 });
@@ -233,8 +264,10 @@ export function MatchFight({
               animate={{
                 ...getLungeAnimation(1),
                 ...getImpactAnimation(1),
+                ...(activeAttacker === 1 && turnPhase === "charging" ? { scale: [1, 1.05, 1] } : {}),
               }}
-              transition={{ duration: turnPhase === "lunge" ? 0.2 : 0.3 }}
+              transition={activeAttacker === 1 && turnPhase === "charging" ? { duration: 0.5, repeat: Infinity } : { duration: turnPhase === "lunge" ? 0.2 : 0.3 }}
+              style={activeAttacker === 1 && turnPhase === "charging" ? { boxShadow: "0 0 16px 4px rgba(255, 215, 0, 0.6)" } : {}}
             >
               <Image
                 src={monsterB.image_url}
@@ -371,8 +404,10 @@ export function MatchFight({
               animate={{
                 ...getLungeAnimation(0),
                 ...getImpactAnimation(0),
+                ...(activeAttacker === 0 && turnPhase === "charging" ? { scale: [1, 1.05, 1] } : {}),
               }}
-              transition={{ duration: turnPhase === "lunge" ? 0.2 : 0.3 }}
+              transition={activeAttacker === 0 && turnPhase === "charging" ? { duration: 0.5, repeat: Infinity } : { duration: turnPhase === "lunge" ? 0.2 : 0.3 }}
+              style={activeAttacker === 0 && turnPhase === "charging" ? { boxShadow: "0 0 16px 4px rgba(255, 215, 0, 0.6)" } : {}}
             >
               <Image
                 src={monsterA.image_url}

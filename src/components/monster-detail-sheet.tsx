@@ -9,18 +9,20 @@ interface MonsterDetailSheetProps {
   entry: LeaderboardEntry | null;
   onClose: () => void;
   onQuickBattle?: () => void;
+  allEntries?: LeaderboardEntry[];
 }
 
 export function MonsterDetailSheet({
   entry,
   onClose,
   onQuickBattle,
+  allEntries,
 }: MonsterDetailSheetProps) {
   return (
     <BottomSheet open={entry !== null} onClose={onClose}>
       {entry && (
         <>
-          <MonsterDetail entry={entry} />
+          <MonsterDetail entry={entry} allEntries={allEntries} />
           {onQuickBattle && (
             <div className="flex justify-center mt-4">
               <RetroButton

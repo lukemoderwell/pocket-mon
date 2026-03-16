@@ -3,11 +3,18 @@
 import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import type { LeaderboardEntry, MoveEffect, PassiveAbility, StageSnapshot } from '@/lib/types';
+import type {
+  LeaderboardEntry,
+  MoveEffect,
+  PassiveAbility,
+  StageSnapshot,
+} from '@/lib/types';
 import { PASSIVE_NAMES, PASSIVE_DESCRIPTIONS } from '@/lib/passive-abilities';
 
 interface MonsterDetailProps {
   entry: LeaderboardEntry;
+  /** All entries, used to resolve parent names for lineage display */
+  allEntries?: LeaderboardEntry[];
 }
 
 const EFFECT_COLORS: Record<MoveEffect, string> = {
@@ -16,11 +23,12 @@ const EFFECT_COLORS: Record<MoveEffect, string> = {
   rush: 'text-retro-accent bg-retro-accent/10',
   drain: 'text-retro-green bg-retro-green/10',
   stun: 'text-yellow-400 bg-yellow-400/10',
+  charge: 'text-retro-gold bg-retro-gold/10',
 };
 
 // Stage labels removed - keeping selector minimal
 
-export function MonsterDetail({ entry }: MonsterDetailProps) {
+export function MonsterDetail({ entry, allEntries }: MonsterDetailProps) {
   const [copied, setCopied] = useState(false);
   const [viewingStage, setViewingStage] = useState(entry.stage);
 
@@ -64,10 +72,12 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
       {/* Evolution stage selector — just tappable diamonds */}
       {hasHistory && (
         <div className="flex items-center gap-3">
-          {[1, 2, 3].map((s) => {
+          {[0, 1, 2, 3].map((s) => {
             const exists = stageData.has(s);
             const isViewing = s === viewingStage;
             const isReached = s <= entry.stage;
+
+            if (s === 0 && !exists) return null;
 
             return (
               <button
@@ -76,16 +86,22 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
                 disabled={!exists}
                 className={`relative p-2 text-base transition-all ${
                   isViewing
-                    ? 'text-retro-gold scale-150'
+                    ? s === 0
+                      ? 'text-pink-400 scale-150'
+                      : 'text-retro-gold scale-150'
                     : isReached && exists
-                      ? 'text-retro-gold/40 active:scale-125'
+                      ? s === 0
+                        ? 'text-pink-400/40 active:scale-125'
+                        : 'text-retro-gold/40 active:scale-125'
                       : 'text-retro-white/15'
                 } ${exists ? 'cursor-pointer' : 'cursor-default'}`}
               >
-                ◆
-                <span className={`absolute inset-0 flex items-center justify-center font-retro text-[6px] ${
-                  isViewing ? 'text-retro-black' : 'text-retro-black/60'
-                }`}>
+                {s === 0 ? '\u2662' : '\u2666'}
+                <span
+                  className={`absolute inset-0 flex items-center justify-center font-retro text-[6px] ${
+                    isViewing ? 'text-retro-black' : 'text-retro-black/60'
+                  }`}
+                >
                   {s}
                 </span>
               </button>
@@ -114,7 +130,7 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Name + copy */}
+      {/* Name + copy + gender */}
       <div className="flex items-center gap-2">
         <button
           onClick={copyName}
@@ -123,22 +139,31 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         >
           {copied ? 'Copied!' : entry.monster_name}
         </button>
+        {entry.gender && (
+          <span
+            className={`font-retro text-xs ${
+              entry.gender === 'male' ? 'text-retro-blue' : 'text-pink-400'
+            }`}
+            title={entry.gender === 'male' ? 'Male' : 'Female'}
+          >
+            {entry.gender === 'male' ? '\u2642' : '\u2640'}
+          </span>
+        )}
         {!hasHistory && (
           <div className="flex gap-0.5">
-            {entry.evo_threshold_2 != null ? (
-              [1, 2, 3].map((s) => (
-                <span
-                  key={s}
-                  className={`text-[10px] ${
-                    s <= entry.stage ? 'text-retro-gold' : 'text-retro-white/20'
-                  }`}
-                >
-                  ◆
-                </span>
-              ))
-            ) : (
-              <span className="text-[10px] text-retro-gold">◆</span>
+            {entry.stage === 0 && (
+              <span className="text-[10px] text-pink-400">{'\u2662'}</span>
             )}
+            {[1, 2, 3].map((s) => (
+              <span
+                key={s}
+                className={`text-[10px] ${
+                  s <= entry.stage ? 'text-retro-gold' : 'text-retro-white/20'
+                }`}
+              >
+                {'\u2666'}
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -218,7 +243,9 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
                 <span>
                   ACC{' '}
                   <span className="text-retro-blue">
-                    {move.accuracy != null ? `${Math.round(move.accuracy * 100)}%` : '100%'}
+                    {move.accuracy != null
+                      ? `${Math.round(move.accuracy * 100)}%`
+                      : '100%'}
                   </span>
                 </span>
                 <span>
@@ -243,6 +270,33 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         <p className="font-retro text-[7px] text-retro-white/50 text-center leading-relaxed max-w-[260px]">
           {current.backstory}
         </p>
+      )}
+
+      {/* Lineage */}
+      {(entry.mother_id || entry.father_id) && (
+        <div className="w-full max-w-[240px] flex flex-col gap-1">
+          <span className="font-retro text-[7px] text-retro-white/30 uppercase">
+            Parents
+          </span>
+          <div className="pixel-border bg-retro-dark/50 px-2 py-1.5 flex gap-3 font-retro text-[8px]">
+            {entry.mother_id && (
+              <span>
+                <span className="text-pink-400">{'\u2640'} </span>
+                <span className="text-retro-white/60">
+                  {allEntries?.find((e) => e.id === entry.mother_id)?.monster_name ?? 'Unknown'}
+                </span>
+              </span>
+            )}
+            {entry.father_id && (
+              <span>
+                <span className="text-retro-blue">{'\u2642'} </span>
+                <span className="text-retro-white/60">
+                  {allEntries?.find((e) => e.id === entry.father_id)?.monster_name ?? 'Unknown'}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-export type MoveEffect = "strike" | "guard" | "rush" | "drain" | "stun";
+export type MoveEffect = "strike" | "guard" | "rush" | "drain" | "stun" | "charge";
 export type MoveCategory = "physical" | "special";
 
 export interface Move {
@@ -9,6 +9,7 @@ export interface Move {
   cooldown: number;
   accuracy: number; // 0.0 - 1.0, chance to hit (before dodge)
   priority?: boolean; // if true, this move always goes first regardless of speed
+  chargeVariant?: "vulnerable" | "defensive";
 }
 
 /** Passive abilities assigned to monsters */
@@ -45,6 +46,8 @@ export interface StageSnapshot {
   weight?: number;
 }
 
+export type MonsterGender = "male" | "female";
+
 export interface Monster {
   id: string;
   name: string;
@@ -58,12 +61,29 @@ export interface Monster {
   appearance: string;
   moves: Move[];
   passive?: PassiveAbility;
+  gender?: MonsterGender;
+  mother_id?: string | null;
+  father_id?: string | null;
   stage: number;
   evolution_history: StageSnapshot[];
+  evo_threshold_1: number | null;
   evo_threshold_2: number | null;
   evo_threshold_3: number | null;
   body_type?: BodyType;
   weight?: number;
+  created_at: string;
+}
+
+export interface Egg {
+  id: string;
+  name: string;
+  mother_id: string;
+  father_id: string;
+  inherited_moves: Move[];
+  inherited_passive?: PassiveAbility;
+  appearance_hint: string;
+  hatched: boolean;
+  monster_id?: string;
   created_at: string;
 }
 
@@ -93,6 +113,9 @@ export interface LeaderboardEntry {
   backstory: string;
   stage: number;
   moves: Move[];
+  gender?: MonsterGender;
+  mother_id?: string | null;
+  father_id?: string | null;
   evolution_history?: StageSnapshot[];
   evo_threshold_2?: number | null;
   body_type?: BodyType;
