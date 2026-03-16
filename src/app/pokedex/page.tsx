@@ -101,7 +101,11 @@ export default function PokedexPage() {
   function startQuickBattle() {
     if (!selectedMonster) return;
     const selected = toMonster(selectedMonster);
-    const eligible = monsters.filter((m) => m.id !== selectedMonster.id && canBattleAgainst(selected, toMonster(m)).ok);
+    const eligible = monsters.filter(
+      (m) =>
+        m.id !== selectedMonster.id &&
+        canBattleAgainst(selected, toMonster(m)).ok,
+    );
     if (eligible.length === 0) return;
     const opponent = eligible[Math.floor(Math.random() * eligible.length)];
     setBattleMonster(toMonster(selectedMonster));
@@ -115,7 +119,7 @@ export default function PokedexPage() {
 
     const { data: fresh } = await supabase
       .from('monsters')
-      .select('stage, evo_threshold_2, evo_threshold_3')
+      .select('stage, evo_threshold_1, evo_threshold_2, evo_threshold_3')
       .eq('id', monster.id)
       .single();
 
@@ -125,7 +129,11 @@ export default function PokedexPage() {
     if (stage >= 3) return false;
 
     const threshold =
-      stage === 1 ? fresh.evo_threshold_2 : fresh.evo_threshold_3;
+      stage === 0
+        ? fresh.evo_threshold_1
+        : stage === 1
+          ? fresh.evo_threshold_2
+          : fresh.evo_threshold_3;
     if (threshold == null) return false;
 
     const { count } = await supabase
@@ -225,7 +233,8 @@ export default function PokedexPage() {
         </Link>
         <h1 className="font-retro text-sm text-retro-gold">Pokedex</h1>
         <span className="font-retro text-[9px] text-retro-white/30">
-          {sortedMonsters.length}{stageFilter !== 'all' ? `/${monsters.length}` : ''}
+          {sortedMonsters.length}
+          {stageFilter !== 'all' ? `/${monsters.length}` : ''}
         </span>
       </div>
 
@@ -258,7 +267,11 @@ export default function PokedexPage() {
           value={String(stageFilter)}
           onChange={(e) => {
             const v = e.target.value;
-            setStageFilter(v === 'all' || v === 'non-evolving' ? v : Number(v) as StageFilter);
+            setStageFilter(
+              v === 'all' || v === 'non-evolving'
+                ? v
+                : (Number(v) as StageFilter),
+            );
           }}
           className="font-retro text-[7px] px-2 py-1 rounded bg-retro-white/5 text-retro-white border border-retro-white/20 focus:border-retro-gold focus:outline-none"
         >
