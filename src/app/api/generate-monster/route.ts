@@ -24,6 +24,7 @@ Return ONLY a JSON object with these fields:
   "appearance": string,
   "body_type": "bipedal" | "quadruped" | "serpentine" | "avian" | "insectoid" | "amorphous" | "floating" | "aquatic",
   "weight": number,
+  "gender": "male" | "female",
   "moves": [${canEvolve ? '{ move1 }, { move2 }' : '{ move1 }, { move2 }, { move3 }'}]
 }
 Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun" | "charge", "category": "physical" | "special", "accuracy": number, "chargeVariant"?: "vulnerable" | "defensive" }
@@ -55,15 +56,22 @@ Effect types — pick ${canEvolve ? 'TWO' : 'THREE'} different ones from this li
 All six effects are equally valid. Do NOT default to strike — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard.
 Accuracy: A number between 0.0 and 1.0. Melee/contact moves are more accurate than ranged/projectile moves. The accuracy should reflect HOW the creature attacks — a claw swipe is precise, a water blast is not.
 Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.
-IMPORTANT: At least one of the ${canEvolve ? 'two' : 'three'} moves MUST be "special" category if the creature has any magical, elemental, psychic, or energy-based traits. Creatures with high sp_attack MUST have at least one special move. Only pure brute-force fighters should have two physical moves.`;
+IMPORTANT: At least one of the ${canEvolve ? 'two' : 'three'} moves MUST be "special" category if the creature has any magical, elemental, psychic, or energy-based traits. Creatures with high sp_attack MUST have at least one special move. Only pure brute-force fighters should have two physical moves.
+
+GENDER: Choose "male" or "female" based on the creature's nature, personality, and traits. Consider the name, appearance, and behavior — let the creature's character guide the choice rather than defaulting to random.`;
 
 export async function POST(req: Request) {
   try {
-    const { name } = await req.json();
+    const { name, gender: requestedGender } = await req.json();
 
     if (!name || typeof name !== 'string' || name.length > 30) {
       return NextResponse.json({ error: 'Invalid name' }, { status: 400 });
     }
+
+    const validGender =
+      requestedGender === 'male' || requestedGender === 'female'
+        ? requestedGender
+        : undefined;
 
     // Check if monster already exists (upsert behavior)
     const { data: existing } = await supabase
@@ -119,6 +127,7 @@ export async function POST(req: Request) {
       appearance: string;
       body_type?: string;
       weight?: number;
+      gender?: string;
       moves: {
         name: string;
         effect: string;
@@ -189,8 +198,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // Assign gender randomly
-    const gender = Math.random() < 0.5 ? 'male' : 'female';
+    // Use user-specified gender if provided, otherwise LLM choice, then random fallback
+    const gender =
+      validGender ??
+      (raw.gender === 'male' || raw.gender === 'female' ? raw.gender : null) ??
+      (Math.random() < 0.5 ? 'male' : 'female');
 
     // Generate random evolution thresholds
     const evo_threshold_2 = Math.floor(Math.random() * 6) + 5; // 5-10
