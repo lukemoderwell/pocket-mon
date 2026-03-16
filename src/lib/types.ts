@@ -62,6 +62,8 @@ export interface Monster {
   moves: Move[];
   passive?: PassiveAbility;
   gender?: MonsterGender;
+  mother_id?: string | null;
+  father_id?: string | null;
   stage: number;
   evolution_history: StageSnapshot[];
   evo_threshold_1: number | null;
@@ -112,6 +114,8 @@ export interface LeaderboardEntry {
   stage: number;
   moves: Move[];
   gender?: MonsterGender;
+  mother_id?: string | null;
+  father_id?: string | null;
   evolution_history?: StageSnapshot[];
   evo_threshold_2?: number | null;
   body_type?: BodyType;

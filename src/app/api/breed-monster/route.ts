@@ -228,6 +228,8 @@ export async function POST(req: Request) {
         moves,
         passive,
         gender,
+        mother_id: parents.mother.id,
+        father_id: parents.father.id,
         stage: 0,
         evo_threshold_1,
         evo_threshold_2,

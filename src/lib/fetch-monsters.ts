@@ -105,6 +105,8 @@ export async function fetchMonstersWithStats(
         : [],
       evo_threshold_2: m.evo_threshold_2 ?? undefined,
       gender: m.gender ?? undefined,
+      mother_id: m.mother_id ?? null,
+      father_id: m.father_id ?? null,
       created_at: m.created_at ?? '',
     };
   });

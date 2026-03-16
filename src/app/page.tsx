@@ -341,6 +341,7 @@ export default function Home() {
         entry={selectedMonster}
         onClose={() => setSelectedMonster(null)}
         onQuickBattle={leaderboard.length >= 2 ? startQuickBattle : undefined}
+        allEntries={leaderboard}
       />
 
       {/* Footer */}

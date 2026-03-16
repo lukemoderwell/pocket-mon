@@ -13,6 +13,8 @@ import { PASSIVE_NAMES, PASSIVE_DESCRIPTIONS } from '@/lib/passive-abilities';
 
 interface MonsterDetailProps {
   entry: LeaderboardEntry;
+  /** All entries, used to resolve parent names for lineage display */
+  allEntries?: LeaderboardEntry[];
 }
 
 const EFFECT_COLORS: Record<MoveEffect, string> = {
@@ -26,7 +28,7 @@ const EFFECT_COLORS: Record<MoveEffect, string> = {
 
 // Stage labels removed - keeping selector minimal
 
-export function MonsterDetail({ entry }: MonsterDetailProps) {
+export function MonsterDetail({ entry, allEntries }: MonsterDetailProps) {
   const [copied, setCopied] = useState(false);
   const [viewingStage, setViewingStage] = useState(entry.stage);
 
@@ -268,6 +270,33 @@ export function MonsterDetail({ entry }: MonsterDetailProps) {
         <p className="font-retro text-[7px] text-retro-white/50 text-center leading-relaxed max-w-[260px]">
           {current.backstory}
         </p>
+      )}
+
+      {/* Lineage */}
+      {(entry.mother_id || entry.father_id) && (
+        <div className="w-full max-w-[240px] flex flex-col gap-1">
+          <span className="font-retro text-[7px] text-retro-white/30 uppercase">
+            Parents
+          </span>
+          <div className="pixel-border bg-retro-dark/50 px-2 py-1.5 flex gap-3 font-retro text-[8px]">
+            {entry.mother_id && (
+              <span>
+                <span className="text-pink-400">{'\u2640'} </span>
+                <span className="text-retro-white/60">
+                  {allEntries?.find((e) => e.id === entry.mother_id)?.monster_name ?? 'Unknown'}
+                </span>
+              </span>
+            )}
+            {entry.father_id && (
+              <span>
+                <span className="text-retro-blue">{'\u2642'} </span>
+                <span className="text-retro-white/60">
+                  {allEntries?.find((e) => e.id === entry.father_id)?.monster_name ?? 'Unknown'}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

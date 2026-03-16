@@ -373,6 +373,7 @@ export default function PokedexPage() {
         entry={selectedMonster}
         onClose={() => setSelectedMonster(null)}
         onQuickBattle={monsters.length >= 2 ? startQuickBattle : undefined}
+        allEntries={monsters}
       />
     </div>
   );
