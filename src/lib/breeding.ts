@@ -5,6 +5,7 @@ import type { Monster, Move, PassiveAbility } from './types';
  * Eligible if: stage 3, OR stage 1 with no evolution path (evo_threshold_2 is null).
  */
 export function canBreed(monster: Monster): boolean {
+  if (!monster.gender) return false;
   if (monster.stage === 3) return true;
   if (monster.stage === 1 && monster.evo_threshold_2 === null) return true;
   return false;

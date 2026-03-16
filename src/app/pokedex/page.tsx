@@ -11,6 +11,7 @@ import { RetroButton } from '@/components/retro-button';
 import { MonsterDetailSheet } from '@/components/monster-detail-sheet';
 import { MatchFight } from '@/components/match-fight';
 import { EvolutionCutscene } from '@/components/evolution-cutscene';
+import { canBattleAgainst } from '@/lib/battle-engine';
 import type { LeaderboardEntry, Monster, SortMode } from '@/lib/types';
 
 const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
@@ -99,9 +100,10 @@ export default function PokedexPage() {
 
   function startQuickBattle() {
     if (!selectedMonster) return;
-    const others = monsters.filter((m) => m.id !== selectedMonster.id);
-    if (others.length === 0) return;
-    const opponent = others[Math.floor(Math.random() * others.length)];
+    const selected = toMonster(selectedMonster);
+    const eligible = monsters.filter((m) => m.id !== selectedMonster.id && canBattleAgainst(selected, toMonster(m)).ok);
+    if (eligible.length === 0) return;
+    const opponent = eligible[Math.floor(Math.random() * eligible.length)];
     setBattleMonster(toMonster(selectedMonster));
     setOpponentMonster(toMonster(opponent));
     setSelectedMonster(null);
