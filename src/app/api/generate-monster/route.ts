@@ -26,7 +26,7 @@ Return ONLY a JSON object with these fields:
   "weight": number,
   "moves": [${canEvolve ? '{ move1 }, { move2 }' : '{ move1 }, { move2 }, { move3 }'}]
 }
-Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }
+Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun" | "charge", "category": "physical" | "special", "accuracy": number, "chargeVariant"?: "vulnerable" | "defensive" }
 
 STATS: Integers 30-${canEvolve ? 100 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Create a distinct archetype — don't make all stats similar. A physical bruiser should have high attack but low sp_attack. A mystic creature should have high sp_attack but low attack. Tanks have high hp+defense but low speed, etc.${!canEvolve ? ' Non-evolving monsters are generally stronger and more balanced since they must compete without evolution.' : ''}
 
@@ -44,14 +44,15 @@ APPEARANCE: A vivid 1-2 sentence visual description for a pixel artist. Focus on
 IMPORTANT — vary the body type! Not every creature should be round or turtle-like. Choose from diverse body plans: bipedal humanoid, serpentine, avian, insectoid, quadruped, amorphous blob, floating/levitating, tall and lanky, stocky and squat, etc. The body type should match the creature's stat archetype (fast creatures are sleek, tanks are sturdy, etc.).
 ${canEvolve ? 'This is a BABY stage 1 creature — it should look small, young, and compact. It will grow BIGGER and more imposing when it evolves.' : 'This creature does NOT evolve — it should look fully mature, capable, and battle-ready from the start. Think Tauros, Heracross, or Absol: strong, independent creatures that are complete as-is. NOT baby-like or cute — this is a fully realized design.'}
 
-MOVES: Each move has a name (creative, thematic), an effect type, a category, and an accuracy value. ${canEvolve ? 'The two moves' : 'All three moves'} MUST have DIFFERENT effect types.
+MOVES: Each move has a name (creative, thematic), an effect type, a category, and an accuracy value. ${canEvolve ? 'The two moves' : 'All three moves'} MUST have DIFFERENT effect types. Charge moves are rare — only give them to creatures whose nature suggests a powerful buildup attack (dragons, mystics, siege-like creatures).
 Effect types — pick ${canEvolve ? 'TWO' : 'THREE'} different ones from this list:
 - "strike": Reliable damage. Accuracy 0.85-1.0. Melee strikes (punches, bites, slashes) should be 1.0. Ranged strikes (shooting water, hurling rocks, fire breath) should be lower (0.85-0.95) since projectiles can miss.
 - "guard": Defensive — reduces incoming damage next turn. Always accuracy 1.0.
 - "rush": Heavy hit but leaves user exposed. Accuracy 0.6-0.8. Wild, reckless attacks are less accurate (0.6-0.65). Focused charges can be higher (0.75-0.8).
 - "drain": Vampiric — deals damage AND heals the attacker. Accuracy 0.8-0.95. Contact drain (biting, leeching) should be higher. Ranged drain (psychic siphon) can be lower.
 - "stun": Chance to skip opponent's next turn. Accuracy 0.7-0.9. Direct contact stuns (headbutt, electric touch) should be higher. Ranged stuns (hypnosis, psychic wave) can be lower.
-All five effects are equally valid. Do NOT default to strike — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard.
+- "charge": Two-turn power move — charges on turn 1, unleashes massive damage on turn 2. Accuracy 0.75-0.95. Include "chargeVariant": "vulnerable" (no protection while charging — glass cannon) or "defensive" (defense raised while charging — safer but telegraphed). Only ~1 in 4 creatures should have a charge move. Never give more than one charge move per creature.
+All six effects are equally valid. Do NOT default to strike — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard.
 Accuracy: A number between 0.0 and 1.0. Melee/contact moves are more accurate than ranged/projectile moves. The accuracy should reflect HOW the creature attacks — a claw swipe is precise, a water blast is not.
 Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.
 IMPORTANT: At least one of the ${canEvolve ? 'two' : 'three'} moves MUST be "special" category if the creature has any magical, elemental, psychic, or energy-based traits. Creatures with high sp_attack MUST have at least one special move. Only pure brute-force fighters should have two physical moves.`;

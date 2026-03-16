@@ -298,6 +298,14 @@ export async function POST(req: Request) {
         status: err.status,
         message: err.message,
         error: err.error,
+        prompt: EVO_IMAGE_PROMPT(
+          monster.name,
+          toStage,
+          appearance,
+          monster.appearance ?? '',
+          monster.weight ?? null,
+          monster.body_type ?? null,
+        ),
       });
       if (err.code === 'moderation_blocked') {
         console.warn('Retrying with simplified prompt');

@@ -1,4 +1,6 @@
 export { TapFrenzy } from "./tap-frenzy";
-export { TimingRing } from "./timing-ring";
-export { PatternMemory } from "./pattern-memory";
-export { EggCatch } from "./egg-catch";
+export { EggRoll } from "./egg-roll";
+export { ShellScratch } from "./shell-scratch";
+export { WarmTheEgg } from "./warm-the-egg";
+export { EggToss } from "./egg-toss";
+export { CrackTiming } from "./crack-timing";

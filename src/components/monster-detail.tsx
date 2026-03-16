@@ -21,6 +21,7 @@ const EFFECT_COLORS: Record<MoveEffect, string> = {
   rush: 'text-retro-accent bg-retro-accent/10',
   drain: 'text-retro-green bg-retro-green/10',
   stun: 'text-yellow-400 bg-yellow-400/10',
+  charge: 'text-retro-gold bg-retro-gold/10',
 };
 
 // Stage labels removed - keeping selector minimal

@@ -81,7 +81,10 @@ export function EggHatch({ motherName, fatherName, onHatch, onFail }: EggHatchPr
                 Complete the mini-game to hatch the egg!
               </p>
             </div>
-            <RetroButton onClick={() => setPhase("minigame")}>Start!</RetroButton>
+            <div className="flex gap-3">
+              <RetroButton onClick={onFail} variant="secondary">Back</RetroButton>
+              <RetroButton onClick={() => setPhase("minigame")}>Hatch!</RetroButton>
+            </div>
           </motion.div>
         )}
 
