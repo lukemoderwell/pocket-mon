@@ -1,4 +1,4 @@
-export type MoveEffect = "strike" | "guard" | "rush" | "drain" | "stun";
+export type MoveEffect = "strike" | "guard" | "rush" | "drain" | "stun" | "charge";
 export type MoveCategory = "physical" | "special";
 
 export interface Move {
@@ -9,6 +9,7 @@ export interface Move {
   cooldown: number;
   accuracy: number; // 0.0 - 1.0, chance to hit (before dodge)
   priority?: boolean; // if true, this move always goes first regardless of speed
+  chargeVariant?: "vulnerable" | "defensive";
 }
 
 /** Passive abilities assigned to monsters */
