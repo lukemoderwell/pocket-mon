@@ -208,6 +208,7 @@ export async function POST(req: Request) {
     } = supabase.storage.from('monsters').getPublicUrl(fileName);
 
     // Generate evolution thresholds for the offspring (evolutions: 0→1→2→3)
+    const evo_threshold_1 = Math.floor(Math.random() * 3) + 3; // 3-5 wins for stage 0→1
     const evo_threshold_2 = Math.floor(Math.random() * 6) + 5; // 5-10 wins for stage 1→2
     const evo_threshold_3 = Math.floor(Math.random() * 16) + 15; // 15-30 wins for stage 2→3
 
@@ -228,6 +229,7 @@ export async function POST(req: Request) {
         passive,
         gender,
         stage: 0,
+        evo_threshold_1,
         evo_threshold_2,
         evo_threshold_3,
       })
