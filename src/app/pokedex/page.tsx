@@ -19,6 +19,17 @@ const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
   { mode: 'newest', label: 'New' },
 ];
 
+type StageFilter = 'all' | 0 | 1 | 2 | 3 | 'non-evolving';
+
+const STAGE_FILTERS: { value: StageFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 0, label: 'Stage 0' },
+  { value: 1, label: 'Stage 1' },
+  { value: 2, label: 'Stage 2' },
+  { value: 3, label: 'Stage 3' },
+  { value: 'non-evolving', label: 'Non-evolving' },
+];
+
 type PageMode = 'list' | 'fighting' | 'evolving' | 'result';
 
 export default function PokedexPage() {
@@ -27,6 +38,7 @@ export default function PokedexPage() {
     useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>('wins');
+  const [stageFilter, setStageFilter] = useState<StageFilter>('all');
 
   // Quick battle state
   const [mode, setMode] = useState<PageMode>('list');
@@ -53,7 +65,18 @@ export default function PokedexPage() {
   }, [fetchAll]);
 
   const sortedMonsters = useMemo(() => {
-    const sorted = [...monsters];
+    const isNonEvolving = (m: LeaderboardEntry) => m.evo_threshold_2 == null;
+
+    let filtered = monsters;
+    if (stageFilter === 'non-evolving') {
+      filtered = monsters.filter(isNonEvolving);
+    } else if (stageFilter !== 'all') {
+      filtered = monsters.filter(
+        (m) => m.stage === stageFilter && !isNonEvolving(m),
+      );
+    }
+
+    const sorted = [...filtered];
     switch (sortMode) {
       case 'alpha':
         sorted.sort((a, b) => a.monster_name.localeCompare(b.monster_name));
@@ -72,7 +95,7 @@ export default function PokedexPage() {
         break;
     }
     return sorted;
-  }, [monsters, sortMode]);
+  }, [monsters, sortMode, stageFilter]);
 
   function startQuickBattle() {
     if (!selectedMonster) return;
@@ -200,7 +223,7 @@ export default function PokedexPage() {
         </Link>
         <h1 className="font-retro text-sm text-retro-gold">Pokedex</h1>
         <span className="font-retro text-[9px] text-retro-white/30">
-          {monsters.length}
+          {sortedMonsters.length}{stageFilter !== 'all' ? `/${monsters.length}` : ''}
         </span>
       </div>
 
@@ -222,6 +245,27 @@ export default function PokedexPage() {
             {opt.label}
           </button>
         ))}
+      </div>
+
+      {/* Stage filter */}
+      <div className="w-full max-w-sm flex items-center gap-2">
+        <span className="font-retro text-[7px] text-retro-white/30 shrink-0">
+          Stage
+        </span>
+        <select
+          value={String(stageFilter)}
+          onChange={(e) => {
+            const v = e.target.value;
+            setStageFilter(v === 'all' || v === 'non-evolving' ? v : Number(v) as StageFilter);
+          }}
+          className="font-retro text-[7px] px-2 py-1 rounded bg-retro-white/5 text-retro-white border border-retro-white/20 focus:border-retro-gold focus:outline-none"
+        >
+          {STAGE_FILTERS.map((opt) => (
+            <option key={String(opt.value)} value={String(opt.value)}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Monster list */}

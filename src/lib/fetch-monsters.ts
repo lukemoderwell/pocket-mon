@@ -103,6 +103,7 @@ export async function fetchMonstersWithStats(
       evolution_history: Array.isArray(m.evolution_history)
         ? m.evolution_history
         : [],
+      evo_threshold_2: m.evo_threshold_2 ?? undefined,
       gender: m.gender ?? undefined,
       created_at: m.created_at ?? '',
     };
