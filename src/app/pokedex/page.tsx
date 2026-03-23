@@ -12,7 +12,8 @@ import { MonsterDetailSheet } from '@/components/monster-detail-sheet';
 import { MatchFight } from '@/components/match-fight';
 import { EvolutionCutscene } from '@/components/evolution-cutscene';
 import { canBattleAgainst } from '@/lib/battle-engine';
-import type { LeaderboardEntry, Monster, SortMode } from '@/lib/types';
+import type { LeaderboardEntry, Monster, MonsterType, SortMode } from '@/lib/types';
+import { TYPE_COLORS, TYPE_NAMES } from '@/lib/type-effectiveness';
 
 const SORT_OPTIONS: { mode: SortMode; label: string }[] = [
   { mode: 'wins', label: 'Wins' },
@@ -360,6 +361,19 @@ export default function PokedexPage() {
                       <span className="text-retro-accent">{entry.losses}L</span>
                     </span>
                     <span className="text-retro-gold">ATK {entry.attack}</span>
+                    {entry.types && entry.types.length > 0 && (
+                      <>
+                        {entry.types.map((type: MonsterType) => (
+                          <span
+                            key={type}
+                            className="font-retro text-[5px] px-1 py-px uppercase text-white"
+                            style={{ backgroundColor: TYPE_COLORS[type] || TYPE_COLORS.normal }}
+                          >
+                            {TYPE_NAMES[type] || type}
+                          </span>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               </motion.button>

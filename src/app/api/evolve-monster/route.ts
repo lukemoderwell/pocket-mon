@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { normalizeStats } from '@/lib/normalize-stats';
 import { normalizeMoves } from '@/lib/normalize-moves';
 import { assignPassive } from '@/lib/passive-abilities';
+import { normalizeTypes } from '@/lib/type-effectiveness';
 import type { Move } from '@/lib/types';
 
 const openai = new OpenAI();
@@ -27,8 +28,9 @@ const EVO_IMAGE_PROMPT = (
   previousAppearance: string,
   weight: number | null,
   bodyType: string | null,
+  types: string[],
 ) =>
-  `A 16-bit SNES-style pixel art monster named "${name}".
+  `A 16-bit SNES-style pixel art monster named "${name}". This is a ${types.join('/')} type creature.
 Previous form (stage ${stage - 1}): "${previousAppearance}"
 Previous weight: ${weight} kg
 Previous body type: ${bodyType}
@@ -54,12 +56,14 @@ const EVO_STATS_PROMPT = (
   bodyType: string | null,
   currentWeight: number | null,
   currentBackstory: string,
+  currentTypes: string[],
 ) =>
   `You are a creature designer. Generate evolved stats, appearance, Pokedex entry, and ${stage >= 3 ? 'three' : 'two'} upgraded battle moves for a stage ${stage} monster named "${name}".${stage === 1 ? '\nThis creature was HATCHED FROM AN EGG and is growing from a tiny hatchling (stage 0) into a proper baby creature (stage 1). It should still be small and cute but more capable.' : ''}
 ${currentAppearance ? `Current appearance (stage ${stage - 1}): "${currentAppearance}"` : ''}
 ${currentBackstory ? `Current backstory: "${currentBackstory}"` : ''}
 ${bodyType ? `Previous body type: ${bodyType}` : ''}
 ${currentWeight ? `Current weight: ${currentWeight} kg` : ''}
+${currentTypes.length > 0 ? `Current types: ${currentTypes.join(', ')}` : ''}
 ${currentMoves.length > 0 ? `Current moves: ${currentMoves.map((m) => `${m.name} (${m.effect}, ${(m as Move & { category?: string }).category || 'physical'})`).join(', ')}.` : ''}
 Return ONLY a JSON object with these fields:
 {
@@ -67,8 +71,11 @@ Return ONLY a JSON object with these fields:
   "backstory": string,
   "appearance": string,
   "weight": number,
+  "types": ["type1"] or ["type1", "type2"],
   "moves": [${stage >= 3 ? '{ move1 }, { move2 }, { move3 — a NEW third move with a DIFFERENT effect type }' : '{ move1 }, { move2 }'}]
 }
+
+TYPES: The creature's current types are [${currentTypes.join(', ')}]. On evolution, the creature may GAIN a secondary type that reflects its new abilities or form (e.g., a pure grass type gaining poison). It may also keep its existing types. Choose 1-2 types from: "fire", "water", "grass", "electric", "ice", "rock", "flying", "poison", "psychic", "ghost", "bug", "normal". The primary type should usually stay the same. Adding a second type on evolution is common and encouraged if the creature's new form suggests it.
 Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }
 
 
@@ -183,6 +190,7 @@ export async function POST(req: Request) {
             monster.body_type ?? null,
             monster.weight ?? null,
             monster.backstory ?? '',
+            normalizeTypes(monster.types),
           ),
         },
       ],
@@ -198,6 +206,7 @@ export async function POST(req: Request) {
       backstory: string;
       appearance: string;
       weight?: number;
+      types?: unknown;
       moves: {
         name: string;
         effect: string;
@@ -211,6 +220,7 @@ export async function POST(req: Request) {
     const appearance = typeof raw.appearance === 'string' ? raw.appearance : '';
     const weight =
       typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
+    const types = normalizeTypes(raw.types);
     const moves = normalizeMoves(raw.moves, toStage);
     const passive = assignPassive(stats);
 
@@ -246,6 +256,7 @@ export async function POST(req: Request) {
       monster.appearance ?? '',
       monster.weight ?? null,
       monster.body_type ?? null,
+      types,
     );
 
     // Attempt to fetch previous sprite as a reference image
@@ -305,6 +316,7 @@ export async function POST(req: Request) {
           monster.appearance ?? '',
           monster.weight ?? null,
           monster.body_type ?? null,
+          types,
         ),
       });
       if (err.code === 'moderation_blocked') {
@@ -389,6 +401,7 @@ export async function POST(req: Request) {
       moves: Array.isArray(monster.moves) ? monster.moves : [],
       passive: monster.passive ?? null,
       weight: monster.weight ?? null,
+      types: normalizeTypes(monster.types),
     };
 
     // Build update payload - only include evolution_history if column exists
@@ -405,6 +418,7 @@ export async function POST(req: Request) {
       passive,
       stage: toStage,
       weight,
+      types,
     };
 
     // Try with evolution_history first, fall back without it

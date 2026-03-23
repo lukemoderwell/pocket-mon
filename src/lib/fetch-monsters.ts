@@ -21,6 +21,7 @@ export function toMonster(entry: LeaderboardEntry): Monster {
     evo_threshold_2: null,
     evo_threshold_3: null,
     gender: entry.gender,
+    types: entry.types,
     created_at: entry.created_at,
   };
 }
@@ -107,6 +108,7 @@ export async function fetchMonstersWithStats(
       gender: m.gender ?? undefined,
       mother_id: m.mother_id ?? null,
       father_id: m.father_id ?? null,
+      types: Array.isArray(m.types) ? m.types : undefined,
       created_at: m.created_at ?? '',
     };
   });

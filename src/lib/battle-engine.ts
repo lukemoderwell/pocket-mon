@@ -1,5 +1,6 @@
-import type { Monster, Move, PassiveAbility } from './types';
+import type { Monster, Move, MonsterType, PassiveAbility } from './types';
 import { getDefaultMoves } from './normalize-moves';
+import { getTypeMultiplier } from './type-effectiveness';
 
 /**
  * Check if two monsters are allowed to battle each other.
@@ -33,6 +34,7 @@ export interface BattleRound {
   charging: boolean;         // true if this round is a charge-up turn
   chargeVariant: string | null; // "vulnerable" | "defensive" | null
   chargeRelease: boolean;    // true if this round is the release turn
+  typeMultiplier: number;    // type effectiveness multiplier (1.5 = super effective, 0.5 = not very, 0 = immune)
 }
 
 export interface BattleResult {
@@ -53,6 +55,7 @@ interface FighterState {
   charging: boolean;
   chargeMove: Move | null;
   passive: PassiveAbility | null;
+  types: MonsterType[];
 }
 
 /** Struggle: fallback when all moves are on cooldown */
@@ -231,6 +234,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       charging: false,
       chargeMove: null,
       passive: getPassive(m),
+      types: (Array.isArray(m.types) && m.types.length > 0 ? m.types : ['normal']) as MonsterType[],
     };
   };
 
@@ -252,7 +256,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     attacker: FighterState,
     defender: FighterState,
     move: Move,
-  ): { damage: number; critical: boolean; passiveTriggered: string | null } => {
+  ): { damage: number; critical: boolean; passiveTriggered: string | null; typeMultiplier: number } => {
     const atkStat = getAttackStat(attacker, move);
     const raw = Math.max(
       1,
@@ -284,16 +288,19 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       if (!passiveTriggered) passiveTriggered = 'thick_skin';
     }
 
+    // Type effectiveness
+    const typeMultiplier = getTypeMultiplier(attacker.types, defender.types);
+
     // Critical hit check (12% chance, 1.5x damage)
     const critical = Math.random() < CRIT_CHANCE;
     const critMult = critical ? CRIT_MULTIPLIER : 1.0;
 
     const damage = Math.max(
-      1,
-      Math.round(raw * variance * power * defMod * critMult),
+      typeMultiplier === 0 ? 0 : 1,
+      Math.round(raw * variance * power * defMod * critMult * typeMultiplier),
     );
 
-    return { damage, critical, passiveTriggered };
+    return { damage, critical, passiveTriggered, typeMultiplier };
   };
 
   /**
@@ -351,6 +358,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
           charging: false,
           chargeVariant: null,
           chargeRelease: false,
+          typeMultiplier: 1.0,
         });
         return;
       }
@@ -388,11 +396,12 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
           charging: false,
           chargeVariant: null,
           chargeRelease: true,
+          typeMultiplier: 1.0,
         });
         return;
       }
 
-      const { damage, critical, passiveTriggered } = calcDamage(attacker, defender, move);
+      const { damage, critical, passiveTriggered, typeMultiplier } = calcDamage(attacker, defender, move);
       let healAmount = 0;
       defender.hp = Math.max(0, defender.hp - damage);
 
@@ -431,6 +440,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         charging: false,
         chargeVariant: null,
         chargeRelease: true,
+        typeMultiplier,
       });
       return;
     }
@@ -468,6 +478,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         charging: true,
         chargeVariant: move.chargeVariant || 'vulnerable',
         chargeRelease: false,
+        typeMultiplier: 1.0,
       });
       return;
     }
@@ -496,11 +507,12 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         charging: false,
         chargeVariant: null,
         chargeRelease: false,
+        typeMultiplier: 1.0,
       });
       return;
     }
 
-    const { damage, critical, passiveTriggered } = calcDamage(attacker, defender, move);
+    const { damage, critical, passiveTriggered, typeMultiplier } = calcDamage(attacker, defender, move);
     let healAmount = 0;
 
     defender.hp = Math.max(0, defender.hp - damage);
@@ -556,6 +568,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       charging: false,
       chargeVariant: null,
       chargeRelease: false,
+      typeMultiplier,
     });
   };
 

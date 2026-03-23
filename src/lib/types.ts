@@ -1,3 +1,22 @@
+export type MonsterType =
+  | "fire"
+  | "water"
+  | "grass"
+  | "electric"
+  | "ice"
+  | "rock"
+  | "flying"
+  | "poison"
+  | "psychic"
+  | "ghost"
+  | "bug"
+  | "normal";
+
+export const ALL_MONSTER_TYPES: MonsterType[] = [
+  "fire", "water", "grass", "electric", "ice", "rock",
+  "flying", "poison", "psychic", "ghost", "bug", "normal",
+];
+
 export type MoveEffect = "strike" | "guard" | "rush" | "drain" | "stun" | "charge";
 export type MoveCategory = "physical" | "special";
 
@@ -44,6 +63,7 @@ export interface StageSnapshot {
   moves: Move[];
   passive?: PassiveAbility;
   weight?: number;
+  types?: MonsterType[];
 }
 
 export type MonsterGender = "male" | "female";
@@ -71,6 +91,7 @@ export interface Monster {
   evo_threshold_3: number | null;
   body_type?: BodyType;
   weight?: number;
+  types?: MonsterType[];
   created_at: string;
 }
 
@@ -121,6 +142,7 @@ export interface LeaderboardEntry {
   body_type?: BodyType;
   passive?: PassiveAbility;
   weight?: number;
+  types?: MonsterType[];
   created_at: string;
 }
 
