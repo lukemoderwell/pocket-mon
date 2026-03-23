@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import { RetroCard } from "./retro-card";
-import type { Monster, MoveEffect } from "@/lib/types";
+import type { Monster, MoveEffect, MonsterType } from "@/lib/types";
+import { TYPE_COLORS, TYPE_NAMES } from "@/lib/type-effectiveness";
 
 interface MonsterCardProps {
   monster: Monster;
@@ -38,6 +39,13 @@ export function MonsterCard({ monster, highlight, compact }: MonsterCardProps) {
           )}
           <StageIndicator stage={monster.stage} canEvolve={monster.evo_threshold_2 != null} />
         </div>
+        {monster.types && monster.types.length > 0 && (
+          <div className="flex gap-1">
+            {monster.types.map((type: MonsterType) => (
+              <TypeBadge key={type} type={type} />
+            ))}
+          </div>
+        )}
         <div className="grid w-full grid-cols-2 gap-x-4 gap-y-1 text-[8px]">
           <StatRow label="HP" value={monster.hp} color="text-retro-green" />
           <StatRow label="ATK" value={monster.attack} color="text-retro-accent" />
@@ -124,6 +132,18 @@ function MoveEffectBadge({ effect }: { effect: MoveEffect }) {
   return (
     <span className={`font-retro text-[6px] px-1.5 py-0.5 uppercase ${EFFECT_COLORS[effect] || EFFECT_COLORS.strike}`}>
       {effect}
+    </span>
+  );
+}
+
+function TypeBadge({ type }: { type: MonsterType }) {
+  const color = TYPE_COLORS[type] || TYPE_COLORS.normal;
+  return (
+    <span
+      className="font-retro text-[6px] px-1.5 py-0.5 uppercase text-white"
+      style={{ backgroundColor: color }}
+    >
+      {TYPE_NAMES[type] || type}
     </span>
   );
 }

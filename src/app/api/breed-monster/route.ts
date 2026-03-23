@@ -9,6 +9,7 @@ import {
   inheritMoves,
   inheritPassive,
 } from '@/lib/breeding';
+import { normalizeTypes } from '@/lib/type-effectiveness';
 import type { Monster, Move } from '@/lib/types';
 
 const openai = new OpenAI();
@@ -28,8 +29,8 @@ const OFFSPRING_PROMPT = (
   `You are a creature designer for a monster battling game. Generate stats, appearance, a Pokedex entry, and two battle moves for a brand new BABY monster named "${name}".
 
 This creature is the OFFSPRING of two parents:
-- Mother: "${mother.name}" — ${mother.appearance}
-- Father: "${father.name}" — ${father.appearance}
+- Mother: "${mother.name}" (${normalizeTypes(mother.types).join('/')}) — ${mother.appearance}
+- Father: "${father.name}" (${normalizeTypes(father.types).join('/')}) — ${father.appearance}
 
 The baby should be a unique blend of both parents — combining visual traits, elemental themes, and personality from both. It should look like it could be THEIR child, but be its own distinct creature.
 
@@ -42,8 +43,11 @@ Return ONLY a JSON object with these fields:
   "backstory": string,
   "appearance": string,
   "gender": "male" | "female",
+  "types": ["type1"],
   "moves": [{ "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }, { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }]
 }
+
+TYPES: Choose exactly ONE type for this hatchling from: "fire", "water", "grass", "electric", "ice", "rock", "flying", "poison", "psychic", "ghost", "bug", "normal". The baby should inherit a type from one of its parents. It may gain a second type as it evolves later. Mother's types: ${normalizeTypes(mother.types).join(', ')}. Father's types: ${normalizeTypes(father.types).join(', ')}.
 
 STATS: Integers 30-80. Distribute exactly ${STAT_BUDGET} points across hp/attack/defense/sp_attack/speed. This is a STAGE 0 HATCHLING — much weaker than a normal stage 1 creature. Stats should be low but loosely reflect a blend of its parents' strengths.
 
@@ -128,6 +132,7 @@ export async function POST(req: Request) {
       backstory: string;
       appearance: string;
       gender?: string;
+      types?: unknown;
       moves: {
         name: string;
         effect: string;
@@ -140,6 +145,7 @@ export async function POST(req: Request) {
     const backstory = typeof raw.backstory === 'string' ? raw.backstory : '';
     const appearance = typeof raw.appearance === 'string' ? raw.appearance : '';
     const moves = normalizeMoves(raw.moves, 0);
+    const types = normalizeTypes(raw.types);
     const passive = inheritedPassive ?? undefined;
     const gender =
       raw.gender === 'male' || raw.gender === 'female'
@@ -228,6 +234,7 @@ export async function POST(req: Request) {
         moves,
         passive,
         gender,
+        types,
         mother_id: parents.mother.id,
         father_id: parents.father.id,
         stage: 0,

@@ -4,11 +4,12 @@ import { supabase } from '@/lib/supabase';
 import { normalizeStats } from '@/lib/normalize-stats';
 import { normalizeMoves } from '@/lib/normalize-moves';
 import { assignPassive } from '@/lib/passive-abilities';
+import { normalizeTypes } from '@/lib/type-effectiveness';
 
 const openai = new OpenAI();
 
-const IMAGE_PROMPT = (name: string, appearance: string, canEvolve: boolean) =>
-  `A 16-bit SNES-style pixel art creature named "${name}". ${appearance}. Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette, appealing proportions. ${canEvolve ? 'This is a BABY stage 1 creature — it should look small, young, and cute with a compact body. The creature should fill about 40% of the frame, leaving room for growth.' : 'This is a fully-formed creature that does not evolve — it should look mature, capable, and battle-ready from the start. Not baby-like. Fill about 65% of the frame with a confident, powerful presence.'} Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
+const IMAGE_PROMPT = (name: string, appearance: string, canEvolve: boolean, types: string[]) =>
+  `A 16-bit SNES-style pixel art creature named "${name}". ${appearance}. This is a ${types.join('/')} type creature — its design should reflect its elemental nature. Design principles: simple readable silhouette with ONE distinctive feature, large expressive eyes, 2-3 main colors in a cohesive palette, appealing proportions. ${canEvolve ? 'This is a BABY stage 1 creature — it should look small, young, and cute with a compact body. The creature should fill about 40% of the frame, leaving room for growth.' : 'This is a fully-formed creature that does not evolve — it should look mature, capable, and battle-ready from the start. Not baby-like. Fill about 65% of the frame with a confident, powerful presence.'} Front-facing full body on a solid blue (#4a90d9) background. Bold dark outlines, clean pixel shading. No text or UI elements.`;
 
 // ~20% of monsters are non-evolving (like Tauros, Heracross, Absol)
 const NON_EVOLVING_CHANCE = 0.2;
@@ -25,8 +26,11 @@ Return ONLY a JSON object with these fields:
   "body_type": "bipedal" | "quadruped" | "serpentine" | "avian" | "insectoid" | "amorphous" | "floating" | "aquatic",
   "weight": number,
   "gender": "male" | "female",
+  "types": ["type1"] or ["type1", "type2"],
   "moves": [${canEvolve ? '{ move1 }, { move2 }' : '{ move1 }, { move2 }, { move3 }'}]
 }
+
+TYPES: Choose 1-2 elemental types from: "fire", "water", "grass", "electric", "ice", "rock", "flying", "poison", "psychic", "ghost", "bug", "normal". The types should match the creature's nature, appearance, and abilities. Most baby stage 1 creatures start with just ONE type — they may gain a second type when they evolve. Non-evolving creatures can have 1-2 types. "normal" is for creatures with no strong elemental identity. Avoid "normal" as a second type.
 Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun" | "charge", "category": "physical" | "special", "accuracy": number, "chargeVariant"?: "vulnerable" | "defensive" }
 
 STATS: Integers 30-${canEvolve ? 100 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Create a distinct archetype — don't make all stats similar. A physical bruiser should have high attack but low sp_attack. A mystic creature should have high sp_attack but low attack. Tanks have high hp+defense but low speed, etc.${!canEvolve ? ' Non-evolving monsters are generally stronger and more balanced since they must compete without evolution.' : ''}
@@ -128,6 +132,7 @@ export async function POST(req: Request) {
       body_type?: string;
       weight?: number;
       gender?: string;
+      types?: unknown;
       moves: {
         name: string;
         effect: string;
@@ -141,6 +146,7 @@ export async function POST(req: Request) {
     const bodyType = typeof raw.body_type === 'string' ? raw.body_type : null;
     const weight =
       typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
+    const types = normalizeTypes(raw.types);
     // Non-evolving monsters get stage 3 move normalization for 3 moves
     const moves = normalizeMoves(raw.moves, canEvolve ? 1 : 3);
     const passive = assignPassive(stats);
@@ -158,6 +164,7 @@ export async function POST(req: Request) {
               ? `A small, cute baby creature with fantastical monster traits`
               : `A mature, battle-ready creature with fantastical monster traits`),
           canEvolve,
+          types,
         ),
         n: 1,
         size: '1024x1024',
@@ -182,6 +189,7 @@ export async function POST(req: Request) {
               ? 'A small, cute baby creature with fantastical monster traits'
               : 'A mature, battle-ready creature with fantastical monster traits'),
           canEvolve,
+          types,
         ),
       });
       if (err.code === 'moderation_blocked') {
@@ -258,6 +266,7 @@ export async function POST(req: Request) {
         stage: 1,
         body_type: bodyType,
         weight,
+        types,
         evo_threshold_2,
         evo_threshold_3,
       })

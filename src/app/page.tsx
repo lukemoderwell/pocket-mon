@@ -14,7 +14,8 @@ import { MatchFight } from '@/components/match-fight';
 import { EvolutionCutscene } from '@/components/evolution-cutscene';
 import { fetchMonstersWithStats, toMonster } from '@/lib/fetch-monsters';
 import { canBattleAgainst } from '@/lib/battle-engine';
-import type { LeaderboardEntry, Monster } from '@/lib/types';
+import type { LeaderboardEntry, Monster, MonsterType } from '@/lib/types';
+import { TYPE_COLORS, TYPE_NAMES } from '@/lib/type-effectiveness';
 
 const PLAYER_OPTIONS = [2, 3, 4, 5, 6, 7, 8];
 
@@ -321,6 +322,19 @@ export default function Home() {
                       <span className="text-retro-gold">
                         ATK {entry.attack}
                       </span>
+                      {entry.types && entry.types.length > 0 && (
+                        <>
+                          {entry.types.map((type: MonsterType) => (
+                            <span
+                              key={type}
+                              className="font-retro text-[5px] px-1 py-px uppercase text-white"
+                              style={{ backgroundColor: TYPE_COLORS[type] || TYPE_COLORS.normal }}
+                            >
+                              {TYPE_NAMES[type] || type}
+                            </span>
+                          ))}
+                        </>
+                      )}
                     </div>
                   </div>
                 </button>

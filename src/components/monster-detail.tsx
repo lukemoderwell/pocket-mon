@@ -6,10 +6,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import type {
   LeaderboardEntry,
   MoveEffect,
+  MonsterType,
   PassiveAbility,
   StageSnapshot,
 } from '@/lib/types';
 import { PASSIVE_NAMES, PASSIVE_DESCRIPTIONS } from '@/lib/passive-abilities';
+import { TYPE_COLORS, TYPE_NAMES } from '@/lib/type-effectiveness';
 
 interface MonsterDetailProps {
   entry: LeaderboardEntry;
@@ -167,6 +169,21 @@ export function MonsterDetail({ entry, allEntries }: MonsterDetailProps) {
           </div>
         )}
       </div>
+
+      {/* Type badges */}
+      {entry.types && entry.types.length > 0 && (
+        <div className="flex gap-1.5">
+          {entry.types.map((type: MonsterType) => (
+            <span
+              key={type}
+              className="font-retro text-[7px] px-2 py-0.5 uppercase text-white"
+              style={{ backgroundColor: TYPE_COLORS[type] || TYPE_COLORS.normal }}
+            >
+              {TYPE_NAMES[type] || type}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Win / Loss */}
       <div className="flex gap-4 font-retro text-xs">

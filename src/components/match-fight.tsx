@@ -169,6 +169,11 @@ export function MatchFight({
 
       const captions: string[] = [];
       if (round.critical) captions.push("Critical hit!");
+      if ('typeMultiplier' in round && typeof round.typeMultiplier === 'number') {
+        if (round.typeMultiplier >= 1.5) captions.push("Super effective!");
+        else if (round.typeMultiplier > 0 && round.typeMultiplier <= 0.5) captions.push("Not very effective...");
+        else if (round.typeMultiplier === 0) captions.push("No effect!");
+      }
       if (round.stunned) {
         captions.push("Stunned!");
       } else if (EFFECT_CAPTIONS[round.moveEffect]) {
