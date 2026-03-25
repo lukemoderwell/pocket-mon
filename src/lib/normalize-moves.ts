@@ -1,13 +1,13 @@
-import type { Move, MoveEffect, MoveCategory } from "./types";
+import type { Move, MoveEffect, MoveCategory, StatusEffect, MoveStatus } from "./types";
 
 /** Power, cooldown, and accuracy rules per effect type */
 const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; cooldown: number; minAccuracy: number; maxAccuracy: number }> = {
   strike: { minPower: 0.8, maxPower: 1.2, cooldown: 0, minAccuracy: 0.85, maxAccuracy: 1.0 },
   guard:  { minPower: 0.4, maxPower: 0.7, cooldown: 1, minAccuracy: 1.0,  maxAccuracy: 1.0 },
-  rush:   { minPower: 1.2, maxPower: 1.75, cooldown: 2, minAccuracy: 0.6,  maxAccuracy: 0.8 },
-  drain:  { minPower: 0.8, maxPower: 1.1, cooldown: 1, minAccuracy: 0.8,  maxAccuracy: 0.95 },
-  stun:   { minPower: 0.5, maxPower: 0.8, cooldown: 2, minAccuracy: 0.7,  maxAccuracy: 0.9 },
-  charge: { minPower: 1.5, maxPower: 2.2, cooldown: 3, minAccuracy: 0.75, maxAccuracy: 0.95 },
+  rush:   { minPower: 1.2, maxPower: 1.55, cooldown: 2, minAccuracy: 0.6,  maxAccuracy: 0.75 },
+  drain:  { minPower: 0.85, maxPower: 1.2, cooldown: 1, minAccuracy: 0.85, maxAccuracy: 0.95 },
+  stun:   { minPower: 0.6, maxPower: 0.9, cooldown: 1, minAccuracy: 0.7,  maxAccuracy: 0.9 },
+  charge: { minPower: 1.5, maxPower: 2.2, cooldown: 2, minAccuracy: 0.75, maxAccuracy: 0.95 },
 };
 
 /** Higher stages get a small power ceiling boost */
@@ -20,6 +20,15 @@ const STAGE_BONUS: Record<number, number> = {
 
 const VALID_EFFECTS: MoveEffect[] = ["strike", "guard", "rush", "drain", "stun", "charge"];
 const VALID_CATEGORIES: MoveCategory[] = ["physical", "special"];
+const VALID_STATUSES: StatusEffect[] = ["poison", "burn", "sleep", "freeze"];
+
+/** Status effect chance bounds per status type */
+const STATUS_CHANCE_RULES: Record<StatusEffect, { min: number; max: number }> = {
+  poison: { min: 0.3, max: 0.5 },
+  burn:   { min: 0.2, max: 0.4 },
+  sleep:  { min: 0.15, max: 0.3 },
+  freeze: { min: 0.1, max: 0.25 },
+};
 
 /**
  * Validate and normalize an AI-generated move.
@@ -59,10 +68,24 @@ export function normalizeMove(raw: Partial<Move>, stage: number): Move {
     ? (raw.chargeVariant === "defensive" ? "defensive" : "vulnerable")
     : undefined;
 
+  // Validate and clamp status effect if provided
+  let statusEffect: MoveStatus | undefined;
+  if (raw.statusEffect && typeof raw.statusEffect === "object") {
+    const rawStatus = raw.statusEffect as MoveStatus;
+    if (VALID_STATUSES.includes(rawStatus.type)) {
+      const bounds = STATUS_CHANCE_RULES[rawStatus.type];
+      const chance = typeof rawStatus.chance === "number"
+        ? Math.round(Math.min(bounds.max, Math.max(bounds.min, rawStatus.chance)) * 100) / 100
+        : Math.round(((bounds.min + bounds.max) / 2) * 100) / 100;
+      statusEffect = { type: rawStatus.type, chance };
+    }
+  }
+
   return {
     name, effect, category, power, cooldown: rules.cooldown, accuracy,
     ...(priority ? { priority } : {}),
     ...(chargeVariant ? { chargeVariant } : {}),
+    ...(statusEffect ? { statusEffect } : {}),
   };
 }
 

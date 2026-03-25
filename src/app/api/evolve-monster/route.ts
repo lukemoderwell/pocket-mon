@@ -76,7 +76,13 @@ Return ONLY a JSON object with these fields:
 }
 
 TYPES: The creature's current types are [${currentTypes.join(', ')}]. On evolution, the creature may GAIN a secondary type that reflects its new abilities or form (e.g., a pure grass type gaining poison). It may also keep its existing types. Choose 1-2 types from: "fire", "water", "grass", "electric", "ice", "rock", "flying", "poison", "psychic", "ghost", "bug", "normal". The primary type should usually stay the same. Adding a second type on evolution is common and encouraged if the creature's new form suggests it.
-Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun", "category": "physical" | "special", "accuracy": number }
+Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun" | "charge", "category": "physical" | "special", "accuracy": number, "chargeVariant"?: "vulnerable" | "defensive", "statusEffect"?: { "type": "poison" | "burn" | "sleep" | "freeze", "chance": number } }
+STATUS EFFECTS: Moves can optionally inflict a status condition. Add "statusEffect" to moves that thematically fit:
+- "poison" (chance 0.3-0.5): venomous/toxic creatures, grass/poison/bug types
+- "burn" (chance 0.2-0.4): fire-themed creatures
+- "sleep" (chance 0.15-0.3): psychic/grass/ghost types with hypnotic or spore abilities
+- "freeze" (chance 0.1-0.25): ice-type creatures
+Evolved creatures are more likely to gain status-inflicting moves as their abilities mature.
 
 
 STATS: Integers 30-${stage === 1 ? 100 : stage === 2 ? 120 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Maintain the monster's archetype but amplify its strengths.
@@ -190,7 +196,7 @@ export async function POST(req: Request) {
             monster.body_type ?? null,
             monster.weight ?? null,
             monster.backstory ?? '',
-            normalizeTypes(monster.types),
+            normalizeTypes(monster.types, monster.body_type),
           ),
         },
       ],
@@ -220,7 +226,7 @@ export async function POST(req: Request) {
     const appearance = typeof raw.appearance === 'string' ? raw.appearance : '';
     const weight =
       typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
-    const types = normalizeTypes(raw.types);
+    const types = normalizeTypes(raw.types, monster.body_type);
     const moves = normalizeMoves(raw.moves, toStage);
     const passive = assignPassive(stats);
 
@@ -401,7 +407,7 @@ export async function POST(req: Request) {
       moves: Array.isArray(monster.moves) ? monster.moves : [],
       passive: monster.passive ?? null,
       weight: monster.weight ?? null,
-      types: normalizeTypes(monster.types),
+      types: normalizeTypes(monster.types, monster.body_type),
     };
 
     // Build update payload - only include evolution_history if column exists

@@ -20,6 +20,14 @@ export const ALL_MONSTER_TYPES: MonsterType[] = [
 export type MoveEffect = "strike" | "guard" | "rush" | "drain" | "stun" | "charge";
 export type MoveCategory = "physical" | "special";
 
+/** Status conditions that moves can inflict */
+export type StatusEffect = "poison" | "burn" | "sleep" | "freeze";
+
+export interface MoveStatus {
+  type: StatusEffect;
+  chance: number; // 0.0 - 1.0, probability of inflicting
+}
+
 export interface Move {
   name: string;
   effect: MoveEffect;
@@ -29,6 +37,7 @@ export interface Move {
   accuracy: number; // 0.0 - 1.0, chance to hit (before dodge)
   priority?: boolean; // if true, this move always goes first regardless of speed
   chargeVariant?: "vulnerable" | "defensive";
+  statusEffect?: MoveStatus; // optional status condition this move can inflict
 }
 
 /** Passive abilities assigned to monsters */
@@ -37,8 +46,8 @@ export type PassiveAbility =
   | "quick_feet"    // +15% dodge chance
   | "vampiric"      // heal 10% of damage dealt on every attack
   | "fierce"        // +20% damage when HP < 33%
-  | "steady"        // immune to stun
-  | "reckless";     // rush moves gain +25% power but no extra accuracy penalty
+  | "steady"        // immune to stun and sleep
+  | "reckless";     // rush moves gain +15% power but no extra accuracy penalty
 
 export type BodyType =
   | "bipedal"
@@ -48,7 +57,8 @@ export type BodyType =
   | "insectoid"
   | "amorphous"
   | "floating"
-  | "aquatic";
+  | "aquatic"
+  | "flora";
 
 export interface StageSnapshot {
   stage: number;

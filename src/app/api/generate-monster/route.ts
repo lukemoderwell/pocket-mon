@@ -23,15 +23,15 @@ Return ONLY a JSON object with these fields:
   "hp": number, "attack": number, "defense": number, "sp_attack": number, "speed": number,
   "backstory": string,
   "appearance": string,
-  "body_type": "bipedal" | "quadruped" | "serpentine" | "avian" | "insectoid" | "amorphous" | "floating" | "aquatic",
+  "body_type": "bipedal" | "quadruped" | "serpentine" | "avian" | "insectoid" | "amorphous" | "floating" | "aquatic" | "flora",
   "weight": number,
   "gender": "male" | "female",
   "types": ["type1"] or ["type1", "type2"],
   "moves": [${canEvolve ? '{ move1 }, { move2 }' : '{ move1 }, { move2 }, { move3 }'}]
 }
 
-TYPES: Choose 1-2 elemental types from: "fire", "water", "grass", "electric", "ice", "rock", "flying", "poison", "psychic", "ghost", "bug", "normal". The types should match the creature's nature, appearance, and abilities. Most baby stage 1 creatures start with just ONE type — they may gain a second type when they evolve. Non-evolving creatures can have 1-2 types. "normal" is for creatures with no strong elemental identity. Avoid "normal" as a second type.
-Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun" | "charge", "category": "physical" | "special", "accuracy": number, "chargeVariant"?: "vulnerable" | "defensive" }
+TYPES: Choose 1-2 elemental types from: "fire", "water", "grass", "electric", "ice", "rock", "flying", "poison", "psychic", "ghost", "bug", "normal". The types should match the creature's nature, appearance, and abilities. Most baby stage 1 creatures start with just ONE type — they may gain a second type when they evolve. Non-evolving creatures can have 1-2 types. IMPORTANT: "normal" should be RARE — only use it for truly mundane, non-elemental creatures like plain mammals or domestic animals. Most creatures have SOME elemental affinity. A burrowing creature is "rock" or "ground". A nocturnal creature is "ghost" or "psychic". A forest creature is "grass" or "bug". Think creatively about type assignment — almost every creature concept maps to a non-normal type. Avoid "normal" as a second type.
+Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun" | "charge", "category": "physical" | "special", "accuracy": number, "chargeVariant"?: "vulnerable" | "defensive", "statusEffect"?: { "type": "poison" | "burn" | "sleep" | "freeze", "chance": number } }
 
 STATS: Integers 30-${canEvolve ? 100 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Create a distinct archetype — don't make all stats similar. A physical bruiser should have high attack but low sp_attack. A mystic creature should have high sp_attack but low attack. Tanks have high hp+defense but low speed, etc.${!canEvolve ? ' Non-evolving monsters are generally stronger and more balanced since they must compete without evolution.' : ''}
 
@@ -41,12 +41,12 @@ Examples of the tone:
 - "The flame on its tail shows the strength of its life-force. If it is weak, the flame also burns weakly."
 - "It digs deep burrows to live in. When in danger, it rolls up its body to withstand attacks."
 
-BODY_TYPE: Choose the body plan that best fits the creature from: "bipedal", "quadruped", "serpentine", "avian", "insectoid", "amorphous", "floating", "aquatic". This determines how the creature moves and fights.
+BODY_TYPE: Choose the body plan that best fits the creature from: "bipedal", "quadruped", "serpentine", "avian", "insectoid", "amorphous", "floating", "aquatic", "flora". "flora" is for plant-based creatures — rooted, vine-like, or fungal beings like Oddish, Bellsprout, Vileplume, or Shroomish. Flora creatures are typically grass or poison type with drain, stun, or status-inflicting moves. This determines how the creature moves and fights.
 
 WEIGHT: A number in kg representing the creature's weight. ${canEvolve ? 'Baby stage 1 creatures are small and light (2-25 kg typically).' : 'Non-evolving creatures vary widely (5-150 kg) depending on their build.'} Match the weight to the body type and stat archetype — tanks are heavier, fast creatures are lighter.
 
 APPEARANCE: A vivid 1-2 sentence visual description for a pixel artist. Focus on: one distinctive body feature, specific colors, personality expressed through posture/expression. Aim for a design that reads clearly as a small silhouette.
-IMPORTANT — vary the body type! Not every creature should be round or turtle-like. Choose from diverse body plans: bipedal humanoid, serpentine, avian, insectoid, quadruped, amorphous blob, floating/levitating, tall and lanky, stocky and squat, etc. The body type should match the creature's stat archetype (fast creatures are sleek, tanks are sturdy, etc.).
+IMPORTANT — vary the body type! Not every creature should be round or turtle-like. Choose from diverse body plans: bipedal humanoid, serpentine, avian, insectoid, quadruped, amorphous blob, floating/levitating, tall and lanky, stocky and squat, plant/fungal (flora), etc. The body type should match the creature's stat archetype (fast creatures are sleek, tanks are sturdy, flora creatures are rooted or vine-like, etc.).
 ${canEvolve ? 'This is a BABY stage 1 creature — it should look small, young, and compact. It will grow BIGGER and more imposing when it evolves.' : 'This creature does NOT evolve — it should look fully mature, capable, and battle-ready from the start. Think Tauros, Heracross, or Absol: strong, independent creatures that are complete as-is. NOT baby-like or cute — this is a fully realized design.'}
 
 MOVES: Each move has a name (creative, thematic), an effect type, a category, and an accuracy value. ${canEvolve ? 'The two moves' : 'All three moves'} MUST have DIFFERENT effect types. Charge moves are rare — only give them to creatures whose nature suggests a powerful buildup attack (dragons, mystics, siege-like creatures).
@@ -56,11 +56,19 @@ Effect types — pick ${canEvolve ? 'TWO' : 'THREE'} different ones from this li
 - "rush": Heavy hit but leaves user exposed. Accuracy 0.6-0.8. Wild, reckless attacks are less accurate (0.6-0.65). Focused charges can be higher (0.75-0.8).
 - "drain": Vampiric — deals damage AND heals the attacker. Accuracy 0.8-0.95. Contact drain (biting, leeching) should be higher. Ranged drain (psychic siphon) can be lower.
 - "stun": Chance to skip opponent's next turn. Accuracy 0.7-0.9. Direct contact stuns (headbutt, electric touch) should be higher. Ranged stuns (hypnosis, psychic wave) can be lower.
-- "charge": Two-turn power move — charges on turn 1, unleashes massive damage on turn 2. Accuracy 0.75-0.95. Include "chargeVariant": "vulnerable" (no protection while charging — glass cannon) or "defensive" (defense raised while charging — safer but telegraphed). Only ~1 in 4 creatures should have a charge move. Never give more than one charge move per creature.
-All six effects are equally valid. Do NOT default to strike — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard.
+- "charge": Two-turn power move — charges on turn 1, unleashes massive damage on turn 2. Accuracy 0.75-0.95. Include "chargeVariant": "vulnerable" (no protection while charging — glass cannon) or "defensive" (defense raised while charging — safer but telegraphed). About 1 in 3 creatures should have a charge move — any creature that suggests building power, concentrating energy, or winding up a massive attack. Never give more than one charge move per creature.
+All six effects are equally valid and competitively balanced. Do NOT default to strike or rush — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard. A dragon or siege creature should have charge. Drain and stun are powerful utility moves — prioritize them for creatures with sustain or control themes.
 Accuracy: A number between 0.0 and 1.0. Melee/contact moves are more accurate than ranged/projectile moves. The accuracy should reflect HOW the creature attacks — a claw swipe is precise, a water blast is not.
 Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.
 IMPORTANT: At least one of the ${canEvolve ? 'two' : 'three'} moves MUST be "special" category if the creature has any magical, elemental, psychic, or energy-based traits. Creatures with high sp_attack MUST have at least one special move. Only pure brute-force fighters should have two physical moves.
+IMPORTANT: Stats should be POLARIZED — creatures must commit to either physical attack OR special attack, not both. A physical attacker should have sp_attack near the minimum (30-40). A special attacker should have attack near the minimum (30-40). Splitting evenly between attack and sp_attack makes a creature weak at everything. The only exception is rare "mixed" non-evolving creatures who explicitly need both.
+
+STATUS EFFECTS: Moves can optionally inflict a status condition on the opponent via "statusEffect": { "type": "poison" | "burn" | "sleep" | "freeze", "chance": 0.0-1.0 }.
+- "poison": Deals 8% max HP damage each turn. Chance 0.3-0.5. Natural for poison, bug, and grass type creatures. Venomous bites, toxic spores, noxious fumes.
+- "burn": Deals 5% max HP per turn AND reduces physical attack by 25%. Chance 0.2-0.4. Natural for fire type creatures. Flame breath, ember spit, scorching touch.
+- "sleep": Skips 1-3 turns, wakes when hit. Chance 0.15-0.3. Natural for psychic, grass, and ghost types. Spore clouds, lullabies, hypnotic waves.
+- "freeze": Skips turn until thawed (25% chance each turn). Chance 0.1-0.25. Natural for ice type creatures. Icy breath, freezing touch, blizzard winds.
+Status effects are powerful equalizers — they let weaker creatures compete against stronger ones through attrition. About 1 in 3 creatures should have at least one move with a status effect. Creatures whose theme involves toxins, spores, fire, ice, or psychic powers should almost always have a status-inflicting move. Any move effect type can carry a status — a poison strike, a burning rush, a freezing charge, etc.
 
 GENDER: Choose "male" or "female" based on the creature's nature, personality, and traits. Consider the name, appearance, and behavior — let the creature's character guide the choice rather than defaulting to random.`;
 
@@ -146,7 +154,7 @@ export async function POST(req: Request) {
     const bodyType = typeof raw.body_type === 'string' ? raw.body_type : null;
     const weight =
       typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
-    const types = normalizeTypes(raw.types);
+    const types = normalizeTypes(raw.types, bodyType);
     // Non-evolving monsters get stage 3 move normalization for 3 moves
     const moves = normalizeMoves(raw.moves, canEvolve ? 1 : 3);
     const passive = assignPassive(stats);

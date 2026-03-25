@@ -63,6 +63,7 @@ Effect types:
 - "drain": Vampiric. Accuracy 0.8-0.95.
 - "stun": Chance to skip opponent turn. Accuracy 0.7-0.9.
 Category: "physical" or "special". Match to the creature's traits.
+STATUS EFFECTS: If the inherited parent moves had status effects, the hatchling's versions can too (with lower chances). Add "statusEffect": { "type": "poison" | "burn" | "sleep" | "freeze", "chance": number } if thematically appropriate. Poison: 0.3-0.5, Burn: 0.2-0.4, Sleep: 0.15-0.3, Freeze: 0.1-0.25.
 
 GENDER: Choose "male" or "female" based on the hatchling's nature, personality, and inherited traits. Let the creature's character guide the choice.`;
 
