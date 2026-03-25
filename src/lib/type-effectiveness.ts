@@ -94,6 +94,7 @@ const BODY_TYPE_FALLBACKS: Record<string, MonsterType[]> = {
   serpentine: ['poison'],
   floating: ['psychic'],
   amorphous: ['ghost'],
+  flora: ['grass'],
   bipedal: ['normal'],
   quadruped: ['normal'],
 };

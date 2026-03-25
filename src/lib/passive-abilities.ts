@@ -39,7 +39,7 @@ export const PASSIVE_DESCRIPTIONS: Record<PassiveAbility, string> = {
   quick_feet: '+15% dodge chance against all attacks',
   vampiric: 'Heals 10% of damage dealt on every attack',
   fierce: '+20% damage when HP drops below 33%',
-  steady: 'Immune to stun effects',
+  steady: 'Immune to stun and sleep effects',
   reckless: 'Rush moves deal 15% more damage',
 };
 

@@ -24,6 +24,20 @@ export function normalizeStats(
       : Math.round(budget / 5);
   }
 
+  // Polarize attack stats — if both attack and sp_attack are within 15 of each other,
+  // boost the higher one and shrink the lower one to create a clear identity
+  const atkDiff = Math.abs(clamped.attack - clamped.sp_attack);
+  if (atkDiff < 15) {
+    const shift = Math.round((15 - atkDiff) / 2) + 3;
+    if (clamped.attack >= clamped.sp_attack) {
+      clamped.attack = Math.min(maxStat, clamped.attack + shift);
+      clamped.sp_attack = Math.max(minStat, clamped.sp_attack - shift);
+    } else {
+      clamped.sp_attack = Math.min(maxStat, clamped.sp_attack + shift);
+      clamped.attack = Math.max(minStat, clamped.attack - shift);
+    }
+  }
+
   const sum = STAT_KEYS.reduce((s, k) => s + clamped[k], 0);
   if (sum === budget) return clamped;
 

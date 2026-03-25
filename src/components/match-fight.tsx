@@ -34,6 +34,13 @@ const EFFECT_CAPTIONS: Record<string, string> = {
   charge: "Charging up!",
 };
 
+const STATUS_CAPTIONS: Record<string, string> = {
+  poison: "Poisoned!",
+  burn: "Burned!",
+  sleep: "Fell asleep!",
+  freeze: "Frozen solid!",
+};
+
 export function MatchFight({
   monsterA,
   monsterB,
@@ -78,12 +85,27 @@ export function MatchFight({
     const attackerSide = hitTarget === 0 ? 1 : 0;
 
     // Build caption
-    if (round.wasStunned) {
-      setCurrentCaption(`${round.attacker} is stunned!`);
+    if (round.statusSkipped) {
+      const statusMsg = round.moveName === 'Asleep' ? 'is fast asleep!' :
+                        round.moveName === 'Frozen' ? 'is frozen solid!' :
+                        'is incapacitated!';
+      setCurrentCaption(`${round.attacker} ${statusMsg}${round.statusDamage > 0 ? ` (${round.statusDamage} status damage)` : ''}`);
+    } else if (round.wasStunned) {
+      setCurrentCaption(`${round.attacker} is stunned!${round.statusDamage > 0 ? ` (${round.statusDamage} status damage)` : ''}`);
     } else {
+      const tickMsg = round.statusDamage > 0 ? ` [${round.statusDamage} status damage]` : '';
       setCurrentCaption(
-        `${round.attacker} uses ${round.moveName}!`
+        `${round.attacker} uses ${round.moveName}!${tickMsg}`
       );
+    }
+
+    if (round.statusSkipped) {
+      // Status-skipped turn - just show message and move on
+      const timer = setTimeout(() => {
+        setCurrentCaption(null);
+        setCurrentRound((r) => r + 1);
+      }, 800);
+      return () => clearTimeout(timer);
     }
 
     if (round.wasStunned) {
@@ -178,6 +200,9 @@ export function MatchFight({
         captions.push("Stunned!");
       } else if (EFFECT_CAPTIONS[round.moveEffect]) {
         captions.push(EFFECT_CAPTIONS[round.moveEffect]);
+      }
+      if (round.statusInflicted && STATUS_CAPTIONS[round.statusInflicted]) {
+        captions.push(STATUS_CAPTIONS[round.statusInflicted]);
       }
       if (round.passiveTriggered) {
         const name = PASSIVE_NAMES[round.passiveTriggered as PassiveAbility] ?? round.passiveTriggered;

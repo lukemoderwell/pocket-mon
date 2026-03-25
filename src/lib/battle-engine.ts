@@ -1,4 +1,4 @@
-import type { Monster, Move, MonsterType, PassiveAbility } from './types';
+import type { Monster, Move, MonsterType, PassiveAbility, StatusEffect } from './types';
 import { getDefaultMoves } from './normalize-moves';
 import { getTypeMultiplier } from './type-effectiveness';
 
@@ -35,6 +35,9 @@ export interface BattleRound {
   chargeVariant: string | null; // "vulnerable" | "defensive" | null
   chargeRelease: boolean;    // true if this round is the release turn
   typeMultiplier: number;    // type effectiveness multiplier (1.5 = super effective, 0.5 = not very, 0 = immune)
+  statusInflicted: StatusEffect | null; // status condition inflicted this round
+  statusDamage: number;      // damage from status condition (poison/burn tick)
+  statusSkipped: boolean;    // true if turn was skipped due to sleep/freeze
 }
 
 export interface BattleResult {
@@ -56,6 +59,8 @@ interface FighterState {
   chargeMove: Move | null;
   passive: PassiveAbility | null;
   types: MonsterType[];
+  statusCondition: StatusEffect | null; // active status condition
+  sleepTurns: number; // remaining sleep turns (1-3)
 }
 
 /** Struggle: fallback when all moves are on cooldown */
@@ -235,6 +240,8 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       chargeMove: null,
       passive: getPassive(m),
       types: (Array.isArray(m.types) && m.types.length > 0 ? m.types : ['normal']) as MonsterType[],
+      statusCondition: null,
+      sleepTurns: 0,
     };
   };
 
@@ -269,6 +276,11 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
 
     let power = move.power;
     let passiveTriggered: string | null = null;
+
+    // Burn reduces physical attack power by 25%
+    if (attacker.statusCondition === 'burn' && category === 'physical') {
+      power *= 0.75;
+    }
 
     // Passive: reckless — rush moves gain +15% power
     if (attacker.passive === 'reckless' && move.effect === 'rush') {
@@ -328,10 +340,111 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     return Math.random() < hitChance;
   };
 
+  /** Helper: build a round object with status defaults */
+  const makeRound = (partial: Omit<BattleRound, 'statusInflicted' | 'statusDamage' | 'statusSkipped'> & {
+    statusInflicted?: StatusEffect | null;
+    statusDamage?: number;
+    statusSkipped?: boolean;
+  }): BattleRound => ({
+    statusInflicted: null,
+    statusDamage: 0,
+    statusSkipped: false,
+    ...partial,
+  });
+
+  /** Apply start-of-turn status effects (poison/burn tick, sleep/freeze skip).
+   *  Returns status damage dealt and whether the turn is skipped. */
+  const applyStatusTick = (fighter: FighterState): { statusDamage: number; skipped: boolean } => {
+    if (!fighter.statusCondition) return { statusDamage: 0, skipped: false };
+
+    switch (fighter.statusCondition) {
+      case 'poison': {
+        // 8% max HP per turn
+        const dmg = Math.max(1, Math.round(fighter.monster.hp * 0.08));
+        fighter.hp = Math.max(0, fighter.hp - dmg);
+        return { statusDamage: dmg, skipped: false };
+      }
+      case 'burn': {
+        // 5% max HP per turn (attack penalty applied in calcDamage)
+        const dmg = Math.max(1, Math.round(fighter.monster.hp * 0.05));
+        fighter.hp = Math.max(0, fighter.hp - dmg);
+        return { statusDamage: dmg, skipped: false };
+      }
+      case 'sleep': {
+        if (fighter.sleepTurns > 0) {
+          fighter.sleepTurns--;
+          if (fighter.sleepTurns === 0) fighter.statusCondition = null;
+          return { statusDamage: 0, skipped: true };
+        }
+        fighter.statusCondition = null;
+        return { statusDamage: 0, skipped: false };
+      }
+      case 'freeze': {
+        // 25% chance to thaw each turn
+        if (Math.random() < 0.25) {
+          fighter.statusCondition = null;
+          return { statusDamage: 0, skipped: false };
+        }
+        return { statusDamage: 0, skipped: true };
+      }
+    }
+  };
+
+  /** Try to inflict a status condition from a move */
+  const tryInflictStatus = (move: Move, defender: FighterState): StatusEffect | null => {
+    if (!move.statusEffect) return null;
+    // Can't stack — already has a condition
+    if (defender.statusCondition) return null;
+    // Steady passive blocks sleep and stun-like effects
+    if (defender.passive === 'steady' && move.statusEffect.type === 'sleep') return null;
+
+    if (Math.random() < move.statusEffect.chance) {
+      defender.statusCondition = move.statusEffect.type;
+      if (move.statusEffect.type === 'sleep') {
+        defender.sleepTurns = 1 + Math.floor(Math.random() * 3); // 1-3 turns
+      }
+      return move.statusEffect.type;
+    }
+    return null;
+  };
+
   const executeTurn = (attackerIdx: 0 | 1) => {
     const defenderIdx = attackerIdx === 0 ? 1 : 0;
     const attacker = fighters[attackerIdx];
     const defender = fighters[defenderIdx];
+
+    // Apply status tick at start of turn
+    const { statusDamage, skipped: statusSkipped } = applyStatusTick(attacker);
+
+    if (attacker.hp <= 0) return; // died to poison/burn
+
+    // Sleep/freeze skip turn (but taking damage wakes from sleep)
+    if (statusSkipped) {
+      rounds.push(makeRound({
+        attacker: attacker.monster.name,
+        defender: defender.monster.name,
+        damage: 0,
+        attackerHp: attacker.hp,
+        defenderHp: defender.hp,
+        moveName: attacker.statusCondition === 'sleep' ? 'Asleep' :
+                  attacker.statusCondition === 'freeze' ? 'Frozen' : 'Incapacitated',
+        moveEffect: 'stun',
+        moveCategory: 'physical',
+        healAmount: 0,
+        stunned: false,
+        wasStunned: false,
+        missed: false,
+        critical: false,
+        passiveTriggered: null,
+        charging: false,
+        chargeVariant: null,
+        chargeRelease: false,
+        typeMultiplier: 1.0,
+        statusSkipped: true,
+        statusDamage,
+      }));
+      return;
+    }
 
     // Check if stunned (passive: steady makes you immune, charging is unstoppable)
     if (attacker.stunned) {
@@ -343,7 +456,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         attacker.stunned = false;
       } else {
         attacker.stunned = false;
-        rounds.push({
+        rounds.push(makeRound({
           attacker: attacker.monster.name,
           defender: defender.monster.name,
           damage: 0,
@@ -362,7 +475,8 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
           chargeVariant: null,
           chargeRelease: false,
           typeMultiplier: 1.0,
-        });
+          statusDamage,
+        }));
         return;
       }
     }
@@ -381,7 +495,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
 
       // Hit/miss check
       if (!doesHit(attacker, defender, move)) {
-        rounds.push({
+        rounds.push(makeRound({
           attacker: attacker.monster.name,
           defender: defender.monster.name,
           damage: 0,
@@ -400,13 +514,20 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
           chargeVariant: null,
           chargeRelease: true,
           typeMultiplier: 1.0,
-        });
+          statusDamage,
+        }));
         return;
       }
 
       const { damage, critical, passiveTriggered, typeMultiplier } = calcDamage(attacker, defender, move);
       let healAmount = 0;
       defender.hp = Math.max(0, defender.hp - damage);
+
+      // Taking damage wakes from sleep
+      if (defender.statusCondition === 'sleep' && damage > 0) {
+        defender.statusCondition = null;
+        defender.sleepTurns = 0;
+      }
 
       // Consume guard on defender if active
       if (defender.guardHitsLeft > 0) {
@@ -418,6 +539,9 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         defender.defenseModifier = 1.0;
       }
 
+      // Try to inflict status from move
+      const statusInflicted = tryInflictStatus(move, defender);
+
       // Passive: vampiric
       if (attacker.passive === 'vampiric') {
         const vampHeal = Math.max(1, Math.round(damage * 0.1));
@@ -425,7 +549,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         healAmount += vampHeal;
       }
 
-      rounds.push({
+      rounds.push(makeRound({
         attacker: attacker.monster.name,
         defender: defender.monster.name,
         damage,
@@ -444,7 +568,9 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         chargeVariant: null,
         chargeRelease: true,
         typeMultiplier,
-      });
+        statusInflicted,
+        statusDamage,
+      }));
       return;
     }
 
@@ -463,7 +589,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         attacker.defenseModifier = 0.3;
         attacker.guardHitsLeft = 2;
       }
-      rounds.push({
+      rounds.push(makeRound({
         attacker: attacker.monster.name,
         defender: defender.monster.name,
         damage: 0,
@@ -482,7 +608,8 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         chargeVariant: move.chargeVariant || 'vulnerable',
         chargeRelease: false,
         typeMultiplier: 1.0,
-      });
+        statusDamage,
+      }));
       return;
     }
 
@@ -492,7 +619,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       if (move.effect === 'rush') {
         attacker.defenseModifier = 1.5;
       }
-      rounds.push({
+      rounds.push(makeRound({
         attacker: attacker.monster.name,
         defender: defender.monster.name,
         damage: 0,
@@ -511,7 +638,8 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
         chargeVariant: null,
         chargeRelease: false,
         typeMultiplier: 1.0,
-      });
+        statusDamage,
+      }));
       return;
     }
 
@@ -519,6 +647,12 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     let healAmount = 0;
 
     defender.hp = Math.max(0, defender.hp - damage);
+
+    // Taking damage wakes from sleep
+    if (defender.statusCondition === 'sleep' && damage > 0) {
+      defender.statusCondition = null;
+      defender.sleepTurns = 0;
+    }
 
     // After being hit, consume guard if active; otherwise reset modifier
     if (defender.guardHitsLeft > 0) {
@@ -546,6 +680,9 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       }
     }
 
+    // Try to inflict status condition from move
+    const statusInflicted = tryInflictStatus(move, defender);
+
     // Passive: vampiric — heal 10% of damage dealt on every attack
     if (attacker.passive === 'vampiric' && move.effect !== 'drain') {
       const vampHeal = Math.max(1, Math.round(damage * 0.1));
@@ -553,7 +690,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       healAmount += vampHeal;
     }
 
-    rounds.push({
+    rounds.push(makeRound({
       attacker: attacker.monster.name,
       defender: defender.monster.name,
       damage,
@@ -572,7 +709,9 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       chargeVariant: null,
       chargeRelease: false,
       typeMultiplier,
-    });
+      statusInflicted,
+      statusDamage,
+    }));
   };
 
   const tickCooldowns = (fighter: FighterState) => {
