@@ -84,11 +84,12 @@ function estimateDamage(
     category === 'special'
       ? (attacker.monster.sp_attack ?? attacker.monster.attack)
       : attacker.monster.attack;
-  const raw = Math.max(1, atkStat - Math.floor(defender.monster.defense * 0.6));
+  const defScale = category === 'special' ? 0.5 : 0.7;
+  const raw = Math.max(1, atkStat - Math.floor(defender.monster.defense * defScale));
   let power = move.power;
   // Account for reckless passive on rush moves
   if (attacker.passive === 'reckless' && move.effect === 'rush') {
-    power *= 1.25;
+    power *= 1.15;
   }
   return Math.max(1, Math.round(raw * power * defender.defenseModifier));
 }
@@ -172,33 +173,32 @@ function selectMove(
     if (rush) return { move: rush.move, moveIndex: rush.index };
   }
 
-  // --- PRIORITY 4: Healthy → stun for crowd control ---
+  // --- PRIORITY 4: Healthy → use charge move for big payoff ---
+  const charge = find('charge');
+  if (charge && hpRatio > 0.5 && !opponent.charging) {
+    // Use charge when opponent is guarded (waste their guard on charge turn)
+    // or when healthy enough to absorb a hit during charge
+    if (opponent.defenseModifier <= 0.5 || hpRatio > 0.6) {
+      return { move: charge.move, moveIndex: charge.index };
+    }
+  }
+
+  // --- PRIORITY 5: Healthy → stun for crowd control ---
   if (hpRatio > 0.6) {
     const stun = find('stun');
     if (stun) return { move: stun.move, moveIndex: stun.index };
   }
 
-  // --- PRIORITY 5: Hurt but opponent is also hurting → drain to sustain ---
+  // --- PRIORITY 6: Hurt but opponent is also hurting → drain to sustain ---
   if (hpRatio < 0.6 && opponentHpRatio < 0.6) {
     const drain = find('drain');
     if (drain) return { move: drain.move, moveIndex: drain.index };
   }
 
-  // --- PRIORITY 6: Taking a beating and can't kill soon → guard up ---
+  // --- PRIORITY 6.5: Taking a beating and can't kill soon → guard up ---
   if (hpRatio < 0.35 && opponentHpRatio > 0.3) {
     const guard = find('guard');
     if (guard) return { move: guard.move, moveIndex: guard.index };
-  }
-
-  // --- PRIORITY 6.5: Use charge move if conditions are favorable ---
-  const charge = find('charge');
-  if (charge && hpRatio > 0.5 && !opponent.charging) {
-    if (opponent.defenseModifier <= 0.5) {
-      return { move: charge.move, moveIndex: charge.index };
-    }
-    if (hpRatio > 0.7) {
-      return { move: charge.move, moveIndex: charge.index };
-    }
   }
 
   // --- PRIORITY 7: Default → pick highest power available ---
@@ -258,18 +258,21 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     move: Move,
   ): { damage: number; critical: boolean; passiveTriggered: string | null; typeMultiplier: number } => {
     const atkStat = getAttackStat(attacker, move);
+    // Special moves partially bypass defense (only 50% defense applies)
+    const category = move.category || 'physical';
+    const defScale = category === 'special' ? 0.5 : 0.7;
     const raw = Math.max(
       1,
-      atkStat - Math.floor(defender.monster.defense * 0.6),
+      atkStat - Math.floor(defender.monster.defense * defScale),
     );
     const variance = 0.8 + Math.random() * 0.4;
 
     let power = move.power;
     let passiveTriggered: string | null = null;
 
-    // Passive: reckless — rush moves gain +25% power
+    // Passive: reckless — rush moves gain +15% power
     if (attacker.passive === 'reckless' && move.effect === 'rush') {
-      power *= 1.25;
+      power *= 1.15;
       passiveTriggered = 'reckless';
     }
 
@@ -487,7 +490,7 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
     if (!doesHit(attacker, defender, move)) {
       // Miss: rush still leaves attacker exposed
       if (move.effect === 'rush') {
-        attacker.defenseModifier = 1.25;
+        attacker.defenseModifier = 1.5;
       }
       rounds.push({
         attacker: attacker.monster.name,
@@ -532,13 +535,13 @@ export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
       attacker.defenseModifier = 0.3; // Take 70% less damage for 2 incoming hits
       attacker.guardHitsLeft = 2;
     } else if (move.effect === 'rush') {
-      attacker.defenseModifier = 1.25; // Take 25% more on next hit
+      attacker.defenseModifier = 1.5; // Take 50% more on next hit
     } else if (move.effect === 'drain') {
-      healAmount = Math.round(damage * 0.6);
+      healAmount = Math.round(damage * 0.7);
       attacker.hp = Math.min(attacker.monster.hp, attacker.hp + healAmount);
     } else if (move.effect === 'stun') {
-      // 40% chance to stun opponent (unless they have steady passive)
-      if (Math.random() < 0.4 && defender.passive !== 'steady') {
+      // 50% chance to stun opponent (unless they have steady passive)
+      if (Math.random() < 0.5 && defender.passive !== 'steady') {
         defender.stunned = true;
       }
     }

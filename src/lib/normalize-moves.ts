@@ -4,10 +4,10 @@ import type { Move, MoveEffect, MoveCategory } from "./types";
 const EFFECT_RULES: Record<MoveEffect, { minPower: number; maxPower: number; cooldown: number; minAccuracy: number; maxAccuracy: number }> = {
   strike: { minPower: 0.8, maxPower: 1.2, cooldown: 0, minAccuracy: 0.85, maxAccuracy: 1.0 },
   guard:  { minPower: 0.4, maxPower: 0.7, cooldown: 1, minAccuracy: 1.0,  maxAccuracy: 1.0 },
-  rush:   { minPower: 1.2, maxPower: 1.75, cooldown: 2, minAccuracy: 0.6,  maxAccuracy: 0.8 },
-  drain:  { minPower: 0.8, maxPower: 1.1, cooldown: 1, minAccuracy: 0.8,  maxAccuracy: 0.95 },
-  stun:   { minPower: 0.5, maxPower: 0.8, cooldown: 2, minAccuracy: 0.7,  maxAccuracy: 0.9 },
-  charge: { minPower: 1.5, maxPower: 2.2, cooldown: 3, minAccuracy: 0.75, maxAccuracy: 0.95 },
+  rush:   { minPower: 1.2, maxPower: 1.55, cooldown: 2, minAccuracy: 0.6,  maxAccuracy: 0.75 },
+  drain:  { minPower: 0.85, maxPower: 1.2, cooldown: 1, minAccuracy: 0.85, maxAccuracy: 0.95 },
+  stun:   { minPower: 0.6, maxPower: 0.9, cooldown: 1, minAccuracy: 0.7,  maxAccuracy: 0.9 },
+  charge: { minPower: 1.5, maxPower: 2.2, cooldown: 2, minAccuracy: 0.75, maxAccuracy: 0.95 },
 };
 
 /** Higher stages get a small power ceiling boost */

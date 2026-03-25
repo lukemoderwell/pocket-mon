@@ -86,11 +86,24 @@ export const TYPE_NAMES: Record<MonsterType, string> = {
   normal: 'Normal',
 };
 
+/** Body-type to likely type fallback map for when GPT returns no types */
+const BODY_TYPE_FALLBACKS: Record<string, MonsterType[]> = {
+  avian: ['flying'],
+  aquatic: ['water'],
+  insectoid: ['bug'],
+  serpentine: ['poison'],
+  floating: ['psychic'],
+  amorphous: ['ghost'],
+  bipedal: ['normal'],
+  quadruped: ['normal'],
+};
+
 /**
  * Normalize raw type data from GPT responses.
- * Ensures we get 1-2 valid types, defaulting to ["normal"].
+ * Ensures we get 1-2 valid types, inferring from body type when possible
+ * instead of always defaulting to "normal".
  */
-export function normalizeTypes(raw: unknown): MonsterType[] {
+export function normalizeTypes(raw: unknown, bodyType?: string | null): MonsterType[] {
   const valid: MonsterType[] = [
     'fire', 'water', 'grass', 'electric', 'ice', 'rock',
     'flying', 'poison', 'psychic', 'ghost', 'bug', 'normal',
@@ -99,6 +112,10 @@ export function normalizeTypes(raw: unknown): MonsterType[] {
   if (!Array.isArray(raw)) {
     if (typeof raw === 'string' && valid.includes(raw as MonsterType)) {
       return [raw as MonsterType];
+    }
+    // Infer from body type instead of always defaulting to normal
+    if (bodyType && BODY_TYPE_FALLBACKS[bodyType]) {
+      return BODY_TYPE_FALLBACKS[bodyType];
     }
     return ['normal'];
   }
@@ -110,5 +127,11 @@ export function normalizeTypes(raw: unknown): MonsterType[] {
   // Remove duplicates
   const unique = [...new Set(types)];
 
-  return unique.length > 0 ? unique : ['normal'];
+  if (unique.length > 0) return unique;
+
+  // Infer from body type instead of always defaulting to normal
+  if (bodyType && BODY_TYPE_FALLBACKS[bodyType]) {
+    return BODY_TYPE_FALLBACKS[bodyType];
+  }
+  return ['normal'];
 }

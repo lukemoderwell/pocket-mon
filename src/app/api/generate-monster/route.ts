@@ -30,7 +30,7 @@ Return ONLY a JSON object with these fields:
   "moves": [${canEvolve ? '{ move1 }, { move2 }' : '{ move1 }, { move2 }, { move3 }'}]
 }
 
-TYPES: Choose 1-2 elemental types from: "fire", "water", "grass", "electric", "ice", "rock", "flying", "poison", "psychic", "ghost", "bug", "normal". The types should match the creature's nature, appearance, and abilities. Most baby stage 1 creatures start with just ONE type — they may gain a second type when they evolve. Non-evolving creatures can have 1-2 types. "normal" is for creatures with no strong elemental identity. Avoid "normal" as a second type.
+TYPES: Choose 1-2 elemental types from: "fire", "water", "grass", "electric", "ice", "rock", "flying", "poison", "psychic", "ghost", "bug", "normal". The types should match the creature's nature, appearance, and abilities. Most baby stage 1 creatures start with just ONE type — they may gain a second type when they evolve. Non-evolving creatures can have 1-2 types. IMPORTANT: "normal" should be RARE — only use it for truly mundane, non-elemental creatures like plain mammals or domestic animals. Most creatures have SOME elemental affinity. A burrowing creature is "rock" or "ground". A nocturnal creature is "ghost" or "psychic". A forest creature is "grass" or "bug". Think creatively about type assignment — almost every creature concept maps to a non-normal type. Avoid "normal" as a second type.
 Each move: { "name": string, "effect": "strike" | "guard" | "rush" | "drain" | "stun" | "charge", "category": "physical" | "special", "accuracy": number, "chargeVariant"?: "vulnerable" | "defensive" }
 
 STATS: Integers 30-${canEvolve ? 100 : 140}. Distribute exactly ${budget} points across hp/attack/defense/sp_attack/speed. Create a distinct archetype — don't make all stats similar. A physical bruiser should have high attack but low sp_attack. A mystic creature should have high sp_attack but low attack. Tanks have high hp+defense but low speed, etc.${!canEvolve ? ' Non-evolving monsters are generally stronger and more balanced since they must compete without evolution.' : ''}
@@ -56,8 +56,8 @@ Effect types — pick ${canEvolve ? 'TWO' : 'THREE'} different ones from this li
 - "rush": Heavy hit but leaves user exposed. Accuracy 0.6-0.8. Wild, reckless attacks are less accurate (0.6-0.65). Focused charges can be higher (0.75-0.8).
 - "drain": Vampiric — deals damage AND heals the attacker. Accuracy 0.8-0.95. Contact drain (biting, leeching) should be higher. Ranged drain (psychic siphon) can be lower.
 - "stun": Chance to skip opponent's next turn. Accuracy 0.7-0.9. Direct contact stuns (headbutt, electric touch) should be higher. Ranged stuns (hypnosis, psychic wave) can be lower.
-- "charge": Two-turn power move — charges on turn 1, unleashes massive damage on turn 2. Accuracy 0.75-0.95. Include "chargeVariant": "vulnerable" (no protection while charging — glass cannon) or "defensive" (defense raised while charging — safer but telegraphed). Only ~1 in 4 creatures should have a charge move. Never give more than one charge move per creature.
-All six effects are equally valid. Do NOT default to strike — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard.
+- "charge": Two-turn power move — charges on turn 1, unleashes massive damage on turn 2. Accuracy 0.75-0.95. Include "chargeVariant": "vulnerable" (no protection while charging — glass cannon) or "defensive" (defense raised while charging — safer but telegraphed). About 1 in 3 creatures should have a charge move — any creature that suggests building power, concentrating energy, or winding up a massive attack. Never give more than one charge move per creature.
+All six effects are equally valid and competitively balanced. Do NOT default to strike or rush — match the effect to the creature's personality. A leech-like creature should have drain. A hypnotic creature should have stun. A turtle should have guard. A dragon or siege creature should have charge. Drain and stun are powerful utility moves — prioritize them for creatures with sustain or control themes.
 Accuracy: A number between 0.0 and 1.0. Melee/contact moves are more accurate than ranged/projectile moves. The accuracy should reflect HOW the creature attacks — a claw swipe is precise, a water blast is not.
 Category: "physical" (uses Attack stat) or "special" (uses Sp. Attack stat). Match category to the monster's archetype.
 IMPORTANT: At least one of the ${canEvolve ? 'two' : 'three'} moves MUST be "special" category if the creature has any magical, elemental, psychic, or energy-based traits. Creatures with high sp_attack MUST have at least one special move. Only pure brute-force fighters should have two physical moves.
@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     const bodyType = typeof raw.body_type === 'string' ? raw.body_type : null;
     const weight =
       typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
-    const types = normalizeTypes(raw.types);
+    const types = normalizeTypes(raw.types, bodyType);
     // Non-evolving monsters get stage 3 move normalization for 3 moves
     const moves = normalizeMoves(raw.moves, canEvolve ? 1 : 3);
     const passive = assignPassive(stats);

@@ -190,7 +190,7 @@ export async function POST(req: Request) {
             monster.body_type ?? null,
             monster.weight ?? null,
             monster.backstory ?? '',
-            normalizeTypes(monster.types),
+            normalizeTypes(monster.types, monster.body_type),
           ),
         },
       ],
@@ -220,7 +220,7 @@ export async function POST(req: Request) {
     const appearance = typeof raw.appearance === 'string' ? raw.appearance : '';
     const weight =
       typeof raw.weight === 'number' && raw.weight > 0 ? raw.weight : null;
-    const types = normalizeTypes(raw.types);
+    const types = normalizeTypes(raw.types, monster.body_type);
     const moves = normalizeMoves(raw.moves, toStage);
     const passive = assignPassive(stats);
 
@@ -401,7 +401,7 @@ export async function POST(req: Request) {
       moves: Array.isArray(monster.moves) ? monster.moves : [],
       passive: monster.passive ?? null,
       weight: monster.weight ?? null,
-      types: normalizeTypes(monster.types),
+      types: normalizeTypes(monster.types, monster.body_type),
     };
 
     // Build update payload - only include evolution_history if column exists
