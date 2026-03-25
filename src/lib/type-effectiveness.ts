@@ -32,7 +32,7 @@ export function getTypeMultiplier(
 ): number {
   if (attackerTypes.length === 0 || defenderTypes.length === 0) return 1.0;
 
-  let bestMultiplier = 1.0;
+  let bestMultiplier = 0;
 
   for (const atkType of attackerTypes) {
     let multiplier = 1.0;
@@ -45,8 +45,8 @@ export function getTypeMultiplier(
         }
       }
     }
-    // Take the best attacking type's result
-    if (bestMultiplier === 1.0 || Math.abs(multiplier - 1.0) > Math.abs(bestMultiplier - 1.0)) {
+    // Take the best attacking type's result (highest multiplier wins)
+    if (multiplier > bestMultiplier) {
       bestMultiplier = multiplier;
     }
   }
