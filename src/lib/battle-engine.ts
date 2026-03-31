@@ -100,16 +100,13 @@ function estimateDamage(
 }
 
 /**
- * Select which move to use based on HP ratio, cooldowns, and game state.
+ * Score each available move based on the current battle state, then pick
+ * using a weighted-random selection so the AI favours strong plays but
+ * isn't completely predictable.
  *
- * Priority:
- * 1. If we can likely finish off the opponent → pick the best killing blow
- * 2. Opponent is guarded → prefer stun/drain (don't waste big hits into a wall)
- * 3. Healthy + opponent exposed → rush for big damage
- * 4. Healthy → stun for crowd control
- * 5. Hurt but opponent is also hurt → drain to sustain while dealing damage
- * 6. Taking heavy damage and NOT close to killing → guard to weather the storm
- * 7. Default → highest power available
+ * Scoring considers estimated damage, type effectiveness, HP of both
+ * fighters, move effects (stun, drain, guard, rush, charge), and
+ * situational bonuses/penalties so the AI doesn't tunnel on one move.
  */
 function selectMove(
   fighter: FighterState,
@@ -135,10 +132,7 @@ function selectMove(
   const hpRatio = fighter.hp / fighter.monster.hp;
   const opponentHpRatio = opponent.hp / opponent.monster.hp;
 
-  const find = (effect: string) =>
-    available.find((m) => m.move.effect === effect);
-
-  // --- PRIORITY 1: Finish them off ---
+  // --- Hard override: guaranteed kill shot → pick the most accurate one ---
   const killShots = available.filter(
     (m) => estimateDamage(fighter, opponent, m.move) >= opponent.hp,
   );
@@ -149,66 +143,107 @@ function selectMove(
     return { move: killShots[0].move, moveIndex: killShots[0].index };
   }
 
-  // --- PRIORITY 1.5: React to opponent charging ---
-  if (opponent.charging) {
-    if (opponent.chargeMove?.chargeVariant === 'vulnerable') {
-      // Free turn — use highest power move to punish
-      available.sort((a, b) => b.move.power - a.move.power);
-      return { move: available[0].move, moveIndex: available[0].index };
-    } else {
-      // Defensive charge incoming — guard up or drain to prepare
-      const guard = find('guard');
-      if (guard) return { move: guard.move, moveIndex: guard.index };
-      const drain = find('drain');
-      if (drain) return { move: drain.move, moveIndex: drain.index };
+  // --- Score every available move ---
+  const scored = available.map((entry) => {
+    const { move } = entry;
+    const dmg = estimateDamage(fighter, opponent, move);
+    const typeMultiplier = getTypeMultiplier(fighter.types, opponent.types);
+
+    // Base score: estimated damage as a proportion of opponent's remaining HP
+    // This naturally favours high-damage moves for the creature's stats.
+    let score = (dmg / Math.max(1, opponent.hp)) * 100;
+
+    // Accuracy weighting — unreliable moves are riskier
+    score *= (move.accuracy ?? 1);
+
+    // Type effectiveness bonus
+    if (typeMultiplier >= 1.5) score *= 1.3;
+    else if (typeMultiplier <= 0.5) score *= 0.5;
+    else if (typeMultiplier === 0) score *= 0;
+
+    // --- Effect-specific situational adjustments ---
+    const effect = move.effect;
+
+    // STUN: valuable as crowd control but not if the damage is terrible
+    if (effect === 'stun') {
+      // Bonus when opponent is healthy (more value in skipping their turn)
+      if (opponentHpRatio > 0.5) score += 8;
+      // Penalty when opponent is already low (just kill them)
+      if (opponentHpRatio < 0.3) score *= 0.4;
+      // Opponent has steady passive (immune to stun) → stun is just weak damage
+      if (opponent.passive === 'steady') score *= 0.5;
+    }
+
+    // DRAIN: better when both fighters are worn down
+    if (effect === 'drain') {
+      if (hpRatio < 0.6) score += 12;
+      if (hpRatio < 0.4) score += 10;
+    }
+
+    // GUARD: valuable at low HP, wasteful at high HP
+    if (effect === 'guard') {
+      if (hpRatio < 0.35 && opponentHpRatio > 0.3) score += 20;
+      else if (hpRatio > 0.6) score *= 0.2; // rarely guard when healthy
+    }
+
+    // RUSH: risky (exposure on miss), reward at high HP
+    if (effect === 'rush') {
+      if (hpRatio > 0.6 && opponent.defenseModifier >= 1.0) score *= 1.2;
+      if (hpRatio < 0.3) score *= 0.4; // too risky when low
+      // If opponent is exposed, rush is great
+      if (opponent.defenseModifier > 1.0) score *= 1.3;
+    }
+
+    // CHARGE: two-turn investment, needs HP to absorb a hit
+    if (effect === 'charge') {
+      if (hpRatio > 0.6 && !opponent.charging) score *= 1.15;
+      else if (hpRatio < 0.4) score *= 0.3; // too risky
+      // Good to waste an opponent's guard
+      if (opponent.defenseModifier <= 0.5) score *= 1.2;
+    }
+
+    // STRIKE: reliable baseline, slight bonus as a "no-nonsense" option
+    if (effect === 'strike') {
+      score += 3; // small reliability bonus
+    }
+
+    // --- React to opponent charging ---
+    if (opponent.charging) {
+      if (opponent.chargeMove?.chargeVariant === 'vulnerable') {
+        // Free turn — pure damage is king
+        if (effect === 'strike' || effect === 'rush') score *= 1.4;
+      } else {
+        // Defensive charge incoming — prefer guard/drain to prepare
+        if (effect === 'guard') score += 15;
+        if (effect === 'drain') score += 10;
+      }
+    }
+
+    // --- Opponent is heavily guarded → don't waste big hits ---
+    if (opponent.defenseModifier <= 0.5) {
+      if (effect === 'strike' || effect === 'rush') score *= 0.6;
+      if (effect === 'stun' || effect === 'drain') score *= 1.2;
+    }
+
+    // Floor at a small positive value so every move has a chance
+    return { ...entry, score: Math.max(1, score) };
+  });
+
+  // --- Weighted random selection ---
+  // Square the scores to make high-scoring moves much more likely
+  // while still allowing occasional variety
+  const totalWeight = scored.reduce((sum, s) => sum + s.score * s.score, 0);
+  let roll = Math.random() * totalWeight;
+  for (const entry of scored) {
+    roll -= entry.score * entry.score;
+    if (roll <= 0) {
+      return { move: entry.move, moveIndex: entry.index };
     }
   }
 
-  // --- PRIORITY 2: Opponent is heavily guarded → don't waste big moves ---
-  if (opponent.defenseModifier <= 0.5) {
-    const stun = find('stun');
-    if (stun) return { move: stun.move, moveIndex: stun.index };
-    const drain = find('drain');
-    if (drain) return { move: drain.move, moveIndex: drain.index };
-  }
-
-  // --- PRIORITY 3: Healthy + opponent exposed → rush for big damage ---
-  if (hpRatio > 0.6 && opponent.defenseModifier >= 1.0) {
-    const rush = find('rush');
-    if (rush) return { move: rush.move, moveIndex: rush.index };
-  }
-
-  // --- PRIORITY 4: Healthy → use charge move for big payoff ---
-  const charge = find('charge');
-  if (charge && hpRatio > 0.5 && !opponent.charging) {
-    // Use charge when opponent is guarded (waste their guard on charge turn)
-    // or when healthy enough to absorb a hit during charge
-    if (opponent.defenseModifier <= 0.5 || hpRatio > 0.6) {
-      return { move: charge.move, moveIndex: charge.index };
-    }
-  }
-
-  // --- PRIORITY 5: Healthy → stun for crowd control ---
-  if (hpRatio > 0.6) {
-    const stun = find('stun');
-    if (stun) return { move: stun.move, moveIndex: stun.index };
-  }
-
-  // --- PRIORITY 6: Hurt but opponent is also hurting → drain to sustain ---
-  if (hpRatio < 0.6 && opponentHpRatio < 0.6) {
-    const drain = find('drain');
-    if (drain) return { move: drain.move, moveIndex: drain.index };
-  }
-
-  // --- PRIORITY 6.5: Taking a beating and can't kill soon → guard up ---
-  if (hpRatio < 0.35 && opponentHpRatio > 0.3) {
-    const guard = find('guard');
-    if (guard) return { move: guard.move, moveIndex: guard.index };
-  }
-
-  // --- PRIORITY 7: Default → pick highest power available ---
-  available.sort((a, b) => b.move.power - a.move.power);
-  return { move: available[0].move, moveIndex: available[0].index };
+  // Fallback (shouldn't reach here)
+  const best = scored.reduce((a, b) => (a.score > b.score ? a : b));
+  return { move: best.move, moveIndex: best.index };
 }
 
 export function runBattle(monster1: Monster, monster2: Monster): BattleResult {
